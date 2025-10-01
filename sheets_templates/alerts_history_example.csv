@@ -1,0 +1,3 @@
+timestamp,severity,source,message
+2025-10-01T19:00:00Z,warn,PPC,PPC: Lower Bid on 'nopal cactus'
+2025-10-01T19:05:00Z,crit,Compliance,COA for NOPAL-120 due in 30 (Lot NPL-250101)
