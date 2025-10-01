@@ -1,0 +1,4 @@
+ASIN,SKU,Title,Sessions,CVR%,Units,Price,Inventory,Days of Cover,Stars,Reviews,Suppressed?
+B00NOPAL01,NOPAL-120,Nopal Cactus 120ct,1500,6.2,93,24.95,420,28,4.6,812,False
+B00MANGO01,MANGO-120,Mangosteen Pericarp 120ct,900,4.9,44,29.95,180,19,4.4,365,False
+B00NOPAL02,NOPAL-240,Nopal Cactus 240ct,600,5.1,31,39.95,95,12,4.5,145,False
