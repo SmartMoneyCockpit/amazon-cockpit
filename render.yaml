@@ -1,4 +1,4 @@
-    services:
+services:
   - type: web
     name: amazon-cockpit
     env: python
@@ -8,4 +8,5 @@
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
-
+      - key: DATABASE_URL
+        value: "postgresql://USER:PASSWORD@HOST:PORT/DBNAME?sslmode=require"

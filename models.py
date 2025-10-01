@@ -1,24 +1,27 @@
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import String, Integer, DateTime, func, ForeignKey, Float
+from __future__ import annotations
+from datetime import datetime
 from typing import Optional
+
+from sqlalchemy import String, Text, Float, DateTime, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 class Base(DeclarativeBase):
     pass
 
 class Product(Base):
     __tablename__ = "products"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    sku: Mapped[str] = mapped_column(String(64), unique=True, index=True)
-    asin: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
-    title: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
-    marketplace: Mapped[str] = mapped_column(String(8), default="US")
-    created_at: Mapped = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-class Keyword(Base):
-    __tablename__ = "keywords"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"))
-    term: Mapped[str] = mapped_column(String(128), index=True)
-    volume: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    difficulty: Mapped[Optional[Float]] = mapped_column(nullable=True)
-    created_at: Mapped = mapped_column(DateTime(timezone=True), server_default=func.now())
+    id: Mapped[int] = mapped_column(primary_key=True)
+    asin: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    title: Mapped[str] = mapped_column(Text)
+    price: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
