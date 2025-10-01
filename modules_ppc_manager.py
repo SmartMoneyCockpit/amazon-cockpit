@@ -1,14 +1,17 @@
 import streamlit as st
 import pandas as pd
+from datetime import date, timedelta
+
 from utils.layout import section_header
 from utils.export import df_to_csv_bytes, df_to_xlsx_bytes, simple_pdf_bytes
 from utils.ads_api import AdsClient
+from utils.ads_reports import fetch_sp_metrics
 from utils.ppc_opt import guardrails, bid_rules, negatives, actions_to_df
 from utils.alerts import Alert
 
 def ppc_manager_view():
-    section_header("📈 PPC Manager (Live Ads Starter)")
-    st.caption("Lists live Ads profiles & SP campaigns via Amazon Advertising API (LWA). Metrics/charts use sample data until reporting is added.")
+    section_header("📈 PPC Manager (Live Reports)")
+    st.caption("Pulls SP metrics via Amazon Ads Reporting API v3 when credentials are set; falls back to sample otherwise.")
 
     ads = AdsClient()
     profiles = ads.get_profiles()
@@ -16,36 +19,36 @@ def ppc_manager_view():
         st.error("No Ads profiles found. Check SP-API/LWA secrets.")
         return
 
-    # Profile selector
     prof_options = {f"{r.get('countryCode','?')} · {r.get('profileId')}": str(r.get('profileId')) for _, r in profiles.iterrows()}
     sel_label = st.selectbox("Ads Profile", list(prof_options.keys()))
     profile_id = prof_options[sel_label]
 
-    # Campaigns
-    camps = ads.get_sp_campaigns(profile_id)
-    st.subheader("Sponsored Products Campaigns (basic fields)")
-    st.dataframe(camps, use_container_width=True)
+    # Date range
+    with st.expander("Date Range"):
+        end = st.date_input("End Date", value=date.today())
+        start = st.date_input("Start Date", value=end - timedelta(days=13))
+    start_s = start.strftime("%Y-%m-%d")
+    end_s = end.strftime("%Y-%m-%d")
 
-    # Charts & metrics (sample for now)
-    st.divider()
-    st.subheader("14‑Day Performance (sample metrics; reporting to be added)")
-    sdf = ads.get_sample_metrics()
-    st.line_chart(sdf.set_index("Date")[["Impressions","Clicks","Orders"]])
-    st.area_chart(sdf.set_index("Date")[["Spend"]])
-    st.bar_chart(sdf.set_index("Date")[["ROAS"]])
-    st.dataframe(sdf, use_container_width=True)
+    # Fetch live (or sample) metrics
+    st.subheader("Performance")
+    df = fetch_sp_metrics(profile_id, start_s, end_s)
+    st.line_chart(df.set_index("Date")[["Impressions","Clicks","Orders"]])
+    st.area_chart(df.set_index("Date")[["Spend"]])
+    st.bar_chart(df.set_index("Date")[["ROAS"]])
+    st.dataframe(df, use_container_width=True)
     c = st.columns(3)
-    c[0].metric("Avg ACoS", f"{sdf['ACoS%'].mean():.1f}%")
-    c[1].metric("Avg ROAS", f"{sdf['ROAS'].mean():.2f}")
-    c[2].metric("Spend (14d)", f"${sdf['Spend'].sum():,.0f}")
+    c[0].metric("Avg ACoS", f"{df['ACoS%'].mean():.1f}%")
+    c[1].metric("Avg ROAS", f"{df['ROAS'].mean():.2f}")
+    c[2].metric("Spend (Period)", f"${df['Spend'].sum():,.0f}")
 
-    with st.expander("⬇️ Export (sample metrics)"):
+    with st.expander("⬇️ Export Metrics"):
         c1, c2, c3 = st.columns(3)
-        c1.download_button("CSV", df_to_csv_bytes(sdf), file_name="ppc_sample_metrics.csv")
-        c2.download_button("XLSX", df_to_xlsx_bytes(sdf), file_name="ppc_sample_metrics.xlsx")
-        c3.download_button("PDF", simple_pdf_bytes("PPC Sample Metrics", sdf), file_name="ppc_sample_metrics.pdf")
+        c1.download_button("CSV", df_to_csv_bytes(df), file_name="ppc_metrics.csv")
+        c2.download_button("XLSX", df_to_xlsx_bytes(df), file_name="ppc_metrics.xlsx")
+        c3.download_button("PDF", simple_pdf_bytes("PPC Metrics", df), file_name="ppc_metrics.pdf")
 
-    # Optimizer works off the current dataframe (sample for now)
+    # Optimizer
     st.divider()
     st.subheader("Optimizer")
     with st.expander("Settings"):
@@ -55,9 +58,9 @@ def ppc_manager_view():
         min_clicks = c3.number_input("Min Clicks (Bid Rules)", value=20, min_value=0, max_value=1000, step=1)
         ctr_floor = c4.number_input("CTR Floor (negatives)", value=0.10, min_value=0.0, max_value=1.0, step=0.01, format="%.2f")
 
-    g_actions = guardrails(sdf, acos_target=acos_target, min_conv=int(min_conv))
-    b_actions = bid_rules(sdf.assign(Keyword="(kw)"), acos_target=acos_target, min_clicks=int(min_clicks))
-    n_actions = negatives(sdf.assign(Keyword="(kw)"), ctr_floor=float(ctr_floor))
+    g_actions = guardrails(df, acos_target=acos_target, min_conv=int(min_conv))
+    b_actions = bid_rules(df.assign(Keyword="(kw)"), acos_target=acos_target, min_clicks=int(min_clicks))
+    n_actions = negatives(df.assign(Keyword="(kw)"), ctr_floor=float(ctr_floor))
     actions_df = pd.concat([
         actions_to_df(g_actions),
         actions_to_df(b_actions),
