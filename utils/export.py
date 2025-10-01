@@ -39,3 +39,20 @@ def simple_pdf_bytes(title: str, df: pd.DataFrame) -> bytes:
     elems.append(tbl)
     doc.build(elems)
     return buf.getvalue()
+
+
+
+def df_to_xlsx_bytes(df, file_name="export.xlsx"):
+    """Return Excel bytes; fallback to CSV if XlsxWriter is missing."""
+    try:
+        import io
+        import pandas as pd
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False)
+        return output.getvalue()
+    except Exception:
+        import io
+        buf = io.StringIO()
+        df.to_csv(buf, index=False)
+        return buf.getvalue().encode('utf-8')
