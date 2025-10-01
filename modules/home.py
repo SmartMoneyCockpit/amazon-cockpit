@@ -71,13 +71,13 @@ def dashboard_home_view():
     st.subheader("⚡ Quick Links")
     cols = st.columns(3)
     with cols[0]:
-        st.page_link("app.py", label="📦 Product Tracker", icon="📦")
-        st.page_link("app.py", label="📈 PPC Manager", icon="📈")
+        st.page_link("pages/10_Product_Tracker.py", label="📦 Product Tracker", icon="📦")
+        st.page_link("pages/20_PPC_Manager.py", label="📈 PPC Manager", icon="📈")
     with cols[1]:
-        st.page_link("app.py", label="🧩 A+ & SEO", icon="🧩")
-        st.page_link("app.py", label="🧾 Compliance Vault", icon="🧾")
+        st.page_link("pages/30_Aplus_SEO.py", label="🧩 A+ & SEO", icon="🧩")
+        st.page_link("pages/40_Compliance_Vault.py", label="🧾 Compliance Vault", icon="🧾")
     with cols[2]:
-        st.page_link("app.py", label="💵 Finance Dashboard", icon="💵")
-        st.page_link("app.py", label="🚨 Alerts Hub", icon="🚨")
+        st.page_link("pages/50_Finance_Dashboard.py", label="💵 Finance Dashboard", icon="💵")
+        st.page_link("pages/60_Alerts_Hub.py", label="🚨 Alerts Hub", icon="🚨")
 
     st.caption("Tip: Drive the tabs to auto-populate Alerts, then come back here for a rollup.")
