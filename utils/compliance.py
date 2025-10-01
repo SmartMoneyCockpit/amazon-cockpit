@@ -43,16 +43,3 @@ def kpi_counts(df: pd.DataFrame) -> Tuple[int,int,int,int]:
     due60 = int((df["ExpiryStatus"] == "due in 60").sum())
     due90 = int((df["ExpiryStatus"] == "due in 90").sum())
     return expired, due30, due60, due90
-
-def add_expiry_metrics(df):
-    import pandas as pd
-    if df is None or df.empty:
-        return df
-    if 'expiryDate' in df.columns:
-        df['expiryDate'] = pd.to_datetime(df['expiryDate'], errors='coerce')
-    today = pd.Timestamp('today').normalize()
-    if 'expiryDate' in df.columns:
-        df['daysToExpiry'] = (df['expiryDate'] - today).dt.days
-    else:
-        df['daysToExpiry'] = pd.NA
-    return df

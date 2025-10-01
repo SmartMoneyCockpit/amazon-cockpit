@@ -11,7 +11,7 @@ def _kpi(name, value, help=None):
     st.metric(name, value, help=help)
 
 def dashboard_home_view():
-    st.title("🛒 Amazon Cockpit — Home")
+    st.title("Amazon Cockpit — Home")
     st.caption("Command center: KPIs, alerts, integrations, and quick links.")
 
     # --- Top KPIs (samples or live if configured) ---
@@ -71,13 +71,13 @@ def dashboard_home_view():
     st.subheader("⚡ Quick Links")
     cols = st.columns(3)
     with cols[0]:
-        st.page_link("app.py", label="📦 Product Tracker", icon="📦")
-        st.page_link("app.py", label="📈 PPC Manager", icon="📈")
+        st.page_link("app.py", label="Product Tracker", icon="📦")
+        st.page_link("app.py", label="PPC Manager", icon="📈")
     with cols[1]:
-        st.page_link("app.py", label="🧩 A+ & SEO", icon="🧩")
-        st.page_link("app.py", label="🧾 Compliance Vault", icon="🧾")
+        st.page_link("app.py", label="A+ & SEO", icon="🧩")
+        st.page_link("app.py", label="Compliance Vault", icon="🧾")
     with cols[2]:
-        st.page_link("app.py", label="💵 Finance Dashboard", icon="💵")
-        st.page_link("app.py", label="🚨 Alerts Hub", icon="🚨")
+        st.page_link("app.py", label="Finance Dashboard", icon="💵")
+        st.page_link("app.py", label="Alerts Hub", icon="🚨")
 
     st.caption("Tip: Drive the tabs to auto-populate Alerts, then come back here for a rollup.")
