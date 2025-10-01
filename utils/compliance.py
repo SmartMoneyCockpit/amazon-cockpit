@@ -1,5 +1,5 @@
+
 import pandas as pd
-from datetime import datetime, timedelta
 from typing import Tuple
 
 REQUIRED_COLS = [
@@ -7,21 +7,32 @@ REQUIRED_COLS = [
 ]
 
 def ensure_columns(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None:
+        df = pd.DataFrame(columns=REQUIRED_COLS)
     for c in REQUIRED_COLS:
         if c not in df.columns:
-            df[c] = "" if c not in ["ManufactureDate","ExpiryDate","VerifiedOn"] else pd.NaT
-    return df[REQUIRED_COLS]
+            df[c] = pd.NaT if c in ["ManufactureDate","ExpiryDate","VerifiedOn"] else ""
+    # Keep consistent order
+    return df[[c for c in REQUIRED_COLS if c in df.columns]]
 
 def parse_dates(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty:
+        return df
     for col in ["ManufactureDate","ExpiryDate","VerifiedOn"]:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce")
     return df
 
-def add_expiry_metrics(df: pd.DataFrame, today: datetime = None) -> pd.DataFrame:
-    if today is None:
-        today = datetime.utcnow().date()
-    df["DaysToExpiry"] = (pd.to_datetime(df["ExpiryDate"]).dt.date - today).dt.days
+def add_expiry_metrics(df: pd.DataFrame) -> pd.DataFrame:
+    # Ensure dates are datetimelike
+    df = parse_dates(df)
+    if df is None or df.empty:
+        return df
+    if "ExpiryDate" not in df.columns:
+        df["ExpiryDate"] = pd.NaT
+    today = pd.Timestamp("today").normalize()
+    # Compute days to expiry safely
+    df["DaysToExpiry"] = (df["ExpiryDate"] - today).dt.days
     def status(d):
         if pd.isna(d):
             return "unknown"
@@ -38,6 +49,8 @@ def add_expiry_metrics(df: pd.DataFrame, today: datetime = None) -> pd.DataFrame
     return df
 
 def kpi_counts(df: pd.DataFrame) -> Tuple[int,int,int,int]:
+    if df is None or df.empty or "ExpiryStatus" not in df.columns:
+        return 0,0,0,0
     expired = int((df["ExpiryStatus"] == "expired").sum())
     due30 = int((df["ExpiryStatus"] == "due in 30").sum())
     due60 = int((df["ExpiryStatus"] == "due in 60").sum())
