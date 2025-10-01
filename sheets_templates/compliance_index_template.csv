@@ -1,0 +1,4 @@
+Document,SKU,Type,Lot,ManufactureDate,ExpiryDate,FileLink,VerifiedBy,VerifiedOn,Notes
+COA-2025Q1-NOPAL,NOPAL-120,COA,NPL-250101,2025-01-05,2026-01-05,https://drive.google.com/...,Joanne,2025-01-10,Batch COA uploaded
+GMP-2025-Audit,*,GMP, , , ,https://drive.google.com/...,Joanne,2025-02-01,Annual audit
+COA-2025Q1-MANGO,MANGO-120,COA,MNG-250102,2025-01-06,2026-01-06,https://drive.google.com/...,Joanne,2025-01-12,Batch COA uploaded
