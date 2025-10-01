@@ -1,0 +1,5 @@
+ASIN,Keyword,MatchType,Indexed?,Rank,Priority
+B00NOPAL01,nopal cactus,Exact,TRUE,7,High
+B00MANGO01,mangosteen pericarp,Exact,TRUE,12,High
+B00NOPAL02,nopal capsules,Phrase,FALSE,,High
+B00NOPAL01,prickly pear capsules,Phrase,TRUE,18,Medium
