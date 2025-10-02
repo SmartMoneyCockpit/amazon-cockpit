@@ -2,10 +2,15 @@
 import streamlit as st
 import pandas as pd
 from utils.finance_source import read_profitability_monthly
+from utils.auth import gate
+import utils.security as sec
 
 st.set_page_config(page_title="Finance Monthly Export", layout="wide")
-st.title("💾 Finance Monthly Export")
+sec.enforce()
+if not gate(required_admin=False):
+    st.stop()
 
+st.title("💾 Finance Monthly Export")
 st.caption("Reads from the **profitability_monthly** tab (or /tmp CSV fallback) and lets you export filtered views.")
 
 df = read_profitability_monthly()
@@ -13,7 +18,6 @@ if df.empty:
     st.info("No rows yet. Run **Data Sync → Refresh + Rollup + Sync to Sheets** first.")
     st.stop()
 
-# Basic filters
 months = sorted(df["month"].dropna().astype(str).unique())
 sel_months = st.multiselect("Months", options=months, default=months[-1:] if months else [])
 sku_text = st.text_input("Filter by SKU contains", "")
@@ -24,7 +28,6 @@ if sel_months:
 if sku_text:
     flt = flt[flt["sku"].astype(str).str.contains(sku_text, case=False, na=False)]
 
-# Derived columns
 for col in ["revenue","fees","other"]:
     if col not in flt.columns:
         flt[col] = 0.0
@@ -39,5 +42,3 @@ st.download_button(
     file_name="finance_profitability_monthly_filtered.csv",
     mime="text/csv"
 )
-
-st.caption("Tip: Keep this as your quick export until Ads costs are integrated into TACOS later.")

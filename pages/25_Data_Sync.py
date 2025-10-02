@@ -1,8 +1,14 @@
 
 import streamlit as st
 from workers import etl
+from utils.auth import gate
+import utils.security as sec
 
 st.set_page_config(page_title="Data Sync", layout="wide")
+sec.enforce()
+if not gate(required_admin=True):
+    st.stop()
+
 st.title("🔄 Data Sync & ETL")
 
 st.caption("Run now, sync to Google Sheets, or view last job status. Nightly schedule on Render (02:15/02:45 America/Mazatlan).")
