@@ -1,17 +1,21 @@
 
 from __future__ import annotations
 import pandas as pd
+
 from workers import etl
 from utils import finance_exporter
 from utils import finance_source
 from utils.sheets_writer import write_df
+from utils.alerts import load_thresholds, low_doc_alerts, compliance_due_alerts, ppc_negatives_surge
 
 def run_all():
     etl.run_job("refresh_orders_inventory_finances", etl.refresh_orders_inventory_finances)
     etl.run_job("monthly_profitability_rollup", etl.monthly_profitability_rollup)
+
     df = finance_source.read_profitability_monthly()
-    if not df.empty:
+    if isinstance(df, pd.DataFrame) and not df.empty:
         finance_exporter.export_summary_to_sheet(df, tab_name="finance_summary")
+
     try:
         from utils import sheets_bridge as SB
         kws = SB.read_tab("keywords")
@@ -19,7 +23,27 @@ def run_all():
             write_df("a_plus_snapshot", kws)
     except Exception:
         pass
-    return True
 
-if __name__ == "__main__":
-    run_all()
+    th = load_thresholds()
+    try:
+        doc_df = low_doc_alerts(int(th.get("doc_days_low", 10)))
+        if isinstance(doc_df, pd.DataFrame) and not doc_df.empty:
+            write_df("alerts_out_low_doc", doc_df)
+    except Exception:
+        pass
+
+    try:
+        comp_df = compliance_due_alerts(int(th.get("compliance_due_days", 30)))
+        if isinstance(comp_df, pd.DataFrame):
+            write_df("alerts_out_compliance", comp_df)
+    except Exception:
+        pass
+
+    try:
+        ppc_df = ppc_negatives_surge(float(th.get("ppc_min_spend", 10.0)), int(th.get("ppc_min_clicks", 12)))
+        if isinstance(ppc_df, pd.DataFrame) and not ppc_df.empty:
+            write_df("alerts_out_ppc", ppc_df)
+    except Exception:
+        pass
+
+    return True
