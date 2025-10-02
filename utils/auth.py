@@ -2,11 +2,11 @@
 from __future__ import annotations
 import os
 import streamlit as st
-from typing import Optional
 
 ADMIN_EMAIL = os.getenv("APP_ADMIN_EMAIL", "").strip().lower()
 LOGIN_EMAIL = os.getenv("APP_LOGIN_EMAIL", "").strip().lower()
 LOGIN_PASSWORD = os.getenv("APP_LOGIN_PASSWORD", "")
+AUTH_PUBLIC_MODE = os.getenv("AUTH_PUBLIC_MODE", "true").strip().lower() in ("1","true","yes")
 
 def _login_form():
     with st.form("login_form", clear_on_submit=False):
@@ -30,6 +30,10 @@ def _check_creds(email: str, password: str) -> bool:
     return bool(email and password)
 
 def gate(required_admin: bool = False) -> bool:
+    # Public mode allows anonymous access for non-admin pages
+    if not required_admin and AUTH_PUBLIC_MODE:
+        return True
+
     user = st.session_state.get("_auth_user")
     if user:
         if required_admin and user.get("role") != "admin":
@@ -47,7 +51,7 @@ def gate(required_admin: bool = False) -> bool:
         if _check_creds(creds["email"], creds["password"]):
             role = _role_for(creds["email"])
             st.session_state["_auth_user"] = {"email": creds["email"], "role": role}
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Invalid credentials.")
     return False
