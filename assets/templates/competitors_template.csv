@@ -1,0 +1,4 @@
+asin,title,brand,price,reviews,stars,weight_kg,size,restricted,notes
+B00NOPAL01,Nopal Cactus 120ct,BrandX,29.95,812,4.4,0.31,120ct,FALSE,
+B00MANGO01,Mangosteen 120ct,BrandY,28.95,365,4.6,0.29,120ct,FALSE,
+B00NOPAL02,Nopal Cactus 240ct,BrandX,39.95,145,4.5,0.53,240ct,FALSE,
