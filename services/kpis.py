@@ -1,6 +1,5 @@
-# vega/services/kpis.py
-
 from vega.infra.sheets_client import SheetsClient
+from datetime import datetime
 
 def load_daily_kpis():
     sc = SheetsClient()
@@ -9,7 +8,7 @@ def load_daily_kpis():
 def record_error(source: str, context: str, message: str, stack: str = ""):
     sc = SheetsClient()
     rows = [{
-        "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+        "timestamp": datetime.utcnow().isoformat(),
         "source": source,
         "context": context,
         "message": message,
