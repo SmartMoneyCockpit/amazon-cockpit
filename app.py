@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 from datetime import datetime
-from vega.infra.sheets_client import SheetsClient
+from infra.sheets_client import SheetsClient
 
 st.set_page_config(page_title="Vega Cockpit - Sheets Test", layout="wide")
 

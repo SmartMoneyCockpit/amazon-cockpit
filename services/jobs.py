@@ -1,4 +1,4 @@
-from vega.infra.sheets_client import SheetsClient
+from infra.sheets_client import SheetsClient
 from datetime import datetime
 from typing import List, Dict, Any
 
