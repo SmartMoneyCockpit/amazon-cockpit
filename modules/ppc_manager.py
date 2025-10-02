@@ -13,6 +13,28 @@ def ppc_manager_view():
     section_header("📈 PPC Manager (Live Reports)")
     st.caption("Pulls SP metrics via Amazon Ads Reporting API v3 when credentials are set; falls back to sample otherwise.")
 
+# --- Live LWA Connection Test (Profiles & first profile's campaigns) ---
+try:
+    from utils.ads_api import quick_test, AdsClient
+    with st.expander("🔌 Live Amazon Ads (LWA) Test"):
+        t = quick_test()
+        if t.get("ok"):
+            st.success(t.get("message","Connected"))
+            ads = AdsClient()
+            prof_df = ads.get_profiles()
+            st.write("**Profiles**")
+            st.dataframe(prof_df, use_container_width=True)
+            if not prof_df.empty and "profileId" in prof_df.columns:
+                pid = str(prof_df.iloc[0]["profileId"])
+                st.write(f"**Campaigns (profile {pid})**")
+                camp_df = ads.get_sp_campaigns(pid)
+                st.dataframe(camp_df, use_container_width=True)
+        else:
+            st.warning(t.get("message","Not connected; using sample metrics below."))
+except Exception as e:
+    st.info(f"Live test not available: {e}")
+
+
     ads = AdsClient()
     profiles = ads.get_profiles()
     if profiles.empty:
