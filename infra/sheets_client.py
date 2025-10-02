@@ -1,3 +1,4 @@
+
 import json
 import os
 from typing import List, Dict, Any, Optional, Tuple
@@ -6,15 +7,22 @@ import gspread
 SHEET_URL = os.getenv("GOOGLE_SHEET_URL")
 
 def _auth():
+    # Prefer JSON content in env; fall back to secret file path
     creds_json = os.getenv("GCP_SERVICE_ACCOUNT_JSON")
-    if not creds_json:
-        raise RuntimeError("GCP_SERVICE_ACCOUNT_JSON is not set.")
-    creds = json.loads(creds_json)
-    gc = gspread.service_account_from_dict(creds)
-    return gc
+    creds_file = os.getenv("GCP_SERVICE_ACCOUNT_JSON_FILE") or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if creds_json:
+        try:
+            creds = json.loads(creds_json)
+        except Exception as e:
+            raise RuntimeError(f"GCP_SERVICE_ACCOUNT_JSON is set but not valid JSON: {e}")
+        gc = gspread.service_account_from_dict(creds)
+        return gc
+    if creds_file and os.path.exists(creds_file):
+        return gspread.service_account(filename=creds_file)
+    raise RuntimeError("GCP_SERVICE_ACCOUNT_JSON is not set. Set GCP_SERVICE_ACCOUNT_JSON (JSON content) "
+                       "or GCP_SERVICE_ACCOUNT_JSON_FILE/GOOGLE_APPLICATION_CREDENTIALS (path to JSON file).")
 
 def _col_letter(n: int) -> str:
-    # 1 -> A, 26 -> Z, 27 -> AA ...
     result = ""
     while n > 0:
         n, rem = divmod(n - 1, 26)
@@ -39,11 +47,10 @@ class SheetsClient:
         if not header:
             raise RuntimeError(f"Worksheet '{tab}' is missing a header row.")
         existing = ws.get_all_records()
-        def keyof(r: Dict[str, Any]) -> Tuple[str,...]:
+        def keyof(r: Dict[str, Any]):
             return tuple(str(r.get(k, "")) for k in keys)
-        index = { keyof(r): i+2 for i, r in enumerate(existing) }  # +2 for header and 1-based index
+        index = { keyof(r): i+2 for i, r in enumerate(existing) }
         last_col_letter = _col_letter(len(header))
-
         for r in rows:
             k = keyof(r)
             row_values = [r.get(col, "") for col in header]
