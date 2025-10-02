@@ -63,25 +63,25 @@ def dashboard_home_view():
     st.subheader("🔌 Integration Health")
     checks = integration_health()
     for name, status, note in checks:
-        st.write(f\"{status} **{name}** — {note}\")
+        st.write(f"{status} **{name}** — {note}")
 
-with st.expander("🔍 Amazon Ads (LWA) Diagnostics"):
-    diag = lwa_diagnostics(run_live=False)
-    s = diag.get("secrets", {})
-    cols = st.columns(4)
-    cols[0].metric("client_id", "Present" if s.get("client_id") else "Missing")
-    cols[1].metric("client_secret", "Present" if s.get("client_secret") else "Missing")
-    cols[2].metric("refresh_token", "Present" if s.get("refresh_token") else "Missing")
-    cols[3].metric("region", s.get("region","na"))
-    st.caption(f"Using keys → id: {s.get('which_keys',{}).get('client_id')}, secret: {s.get('which_keys',{}).get('client_secret')}, token: {s.get('which_keys',{}).get('refresh_token')}")
-    if st.button("Run Live Token Test"):
-        live = lwa_diagnostics(run_live=True).get("live", {})
-        if live.get("ok"):
-            st.success(live.get("message", "Connected"))
-        else:
-            st.warning(live.get("message", "Not connected"))
-
-    st.divider()
+    with st.expander("🔍 Amazon Ads (LWA) Diagnostics"):
+        diag = lwa_diagnostics(run_live=False)
+        s = diag.get("secrets", {})
+        cols = st.columns(4)
+        cols[0].metric("client_id", "Present" if s.get("client_id") else "Missing")
+        cols[1].metric("client_secret", "Present" if s.get("client_secret") else "Missing")
+        cols[2].metric("refresh_token", "Present" if s.get("refresh_token") else "Missing")
+        cols[3].metric("region", s.get("region","na"))
+        st.caption(f"Using keys → id: {s.get('which_keys',{}).get('client_id')}, secret: {s.get('which_keys',{}).get('client_secret')}, token: {s.get('which_keys',{}).get('refresh_token')}")
+        if st.button("Run Live Token Test"):
+            live = lwa_diagnostics(run_live=True).get("live", {})
+            if live.get("ok"):
+                st.success(live.get("message", "Connected"))
+            else:
+                st.warning(live.get("message", "Not connected"))
+    
+        st.divider()
 
     # --- Quick Links ---
     st.subheader("⚡ Quick Links")
