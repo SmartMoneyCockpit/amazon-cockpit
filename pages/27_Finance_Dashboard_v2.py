@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 from utils.finance_source import read_profitability_monthly
@@ -13,7 +12,7 @@ if not gate(required_admin=False):
     st.stop()
 
 st.title("📊 Finance Dashboard v2 (Sheets-first)")
-st.caption("Reads **profitability_monthly** from Google Sheets and shows KPIs. If you add a `cogs_map` tab (sku,cogs_per_unit), margins appear.")
+st.caption("Reads **profitability_monthly** from Google Sheets and shows KPIs. Uses `units × cogs_per_unit` for gross margin when available.")
 
 df = read_profitability_monthly()
 if df.empty:
@@ -30,7 +29,7 @@ if sel_months:
 if sku_q:
     flt = flt[flt["sku"].astype(str).str.contains(sku_q, case=False, na=False)]
 
-# Margins
+# Apply COGS with units
 cogs_map = read_cogs_map()
 flt = apply_margins(flt, cogs_map)
 
@@ -53,21 +52,16 @@ summary = build_summary(flt)
 st.subheader("Monthly Totals")
 st.dataframe(summary, use_container_width=True, hide_index=True)
 
-if "gross_margin_pct" in flt.columns:
-    st.subheader("Margins (if COGS provided)")
-    m = flt.groupby("month", as_index=False).agg(
-        gross_margin=("gross_margin","sum"),
-        revenue=("revenue","sum"),
-        net=("net","sum")
-    )
-    m["gross_margin_pct"] = (m["gross_margin"] / m["revenue"].replace(0, pd.NA)).astype(float) * 100
-    m["net_margin_pct"] = (m["net"] / m["revenue"].replace(0, pd.NA)).astype(float) * 100
-    st.dataframe(m, use_container_width=True, hide_index=True)
+# Show units & gross margin if available
+cols_to_show = ["month","sku","revenue","fees","other"]
+if "units" in flt.columns: cols_to_show.append("units")
+if "gross_margin_pct" in flt.columns: cols_to_show.append("gross_margin_pct")
+if "net" in flt.columns: cols_to_show.append("net")
+
+st.subheader("Detailed Rows (with Units & Gross Margin when available)")
+st.dataframe(flt[cols_to_show], use_container_width=True, hide_index=True)
 
 st.subheader("Export")
 if st.button("Send Monthly Summary to Google Sheet → finance_summary"):
     res = export_summary_to_sheet(flt, tab_name="finance_summary")
     st.success(f"Exported summary: {res}")
-
-st.subheader("Detailed Rows")
-st.dataframe(flt, use_container_width=True, hide_index=True)

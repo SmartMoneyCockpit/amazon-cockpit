@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 import pandas as pd
 
@@ -18,19 +17,21 @@ def apply_margins(roll: pd.DataFrame, cogs_map: pd.DataFrame) -> pd.DataFrame:
     for col in ["revenue","fees","other"]:
         if col not in df.columns: df[col] = 0.0
     df["net"] = df["revenue"].fillna(0) - df["fees"].fillna(0) - df["other"].fillna(0)
+
+    # Join COGS per unit
     if not cogs_map.empty and "sku" in cogs_map.columns and "cogs_per_unit" in cogs_map.columns:
-        try:
-            df = df.merge(cogs_map, on="sku", how="left")
-            # approximate units = (revenue / avg selling price)? We don't have price here,
-            # so treat COGS per unit as blended and infer units if provided separately.
-            # Better: if `units` exists in roll later, use it. For now, allow optional column.
-            if "units" in df.columns:
-                df["cogs"] = df["units"].fillna(0) * df["cogs_per_unit"].fillna(0)
-            else:
-                df["cogs"] = 0.0  # placeholder until units available
-            df["gross_margin"] = (df["revenue"] - df["cogs"]).fillna(0)
-            df["gross_margin_pct"] = (df["gross_margin"] / df["revenue"].replace(0, pd.NA)).astype(float) * 100
-            df["net_margin_pct"] = (df["net"] / df["revenue"].replace(0, pd.NA)).astype(float) * 100
-        except Exception:
-            pass
+        df = df.merge(cogs_map[["sku","cogs_per_unit"]], on="sku", how="left")
+    else:
+        df["cogs_per_unit"] = 0.0
+
+    # Compute COGS if units exist
+    if "units" in df.columns:
+        df["cogs"] = pd.to_numeric(df["units"], errors="coerce").fillna(0) * pd.to_numeric(df["cogs_per_unit"], errors="coerce").fillna(0.0)
+        df["gross_margin"] = df["revenue"].fillna(0) - df["cogs"].fillna(0)
+        df["gross_margin_pct"] = (df["gross_margin"] / df["revenue"].replace(0, pd.NA)).astype(float) * 100
+    else:
+        df["cogs"] = pd.NA
+        df["gross_margin"] = pd.NA
+        df["gross_margin_pct"] = pd.NA
+
     return df

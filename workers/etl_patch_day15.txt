@@ -1,0 +1,57 @@
+# Paste into workers/etl.py (replace monthly_profitability_rollup function)
+def monthly_profitability_rollup():
+    """
+    Build monthly profitability rollup with UNITS.
+    Reads /tmp/finances.csv and /tmp/orders.csv (written by refresh job),
+    then writes /tmp/profitability_monthly.csv with columns:
+      month, sku, revenue, fees, other, units
+    """
+    import os
+    import pandas as pd
+
+    outdir = os.environ.get("ETL_OUT_DIR", "/tmp")
+    fin_path = os.path.join(outdir, "finances.csv")
+    ord_path = os.path.join(outdir, "orders.csv")
+
+    # Finances
+    if os.path.exists(fin_path):
+        fin = pd.read_csv(fin_path)
+    else:
+        fin = pd.DataFrame(columns=["date","sku","asin","revenue","fees","other"])
+
+    if fin.empty:
+        roll = pd.DataFrame(columns=["month","sku","revenue","fees","other","units"])
+        roll.to_csv(os.path.join(outdir, "profitability_monthly.csv"), index=False)
+        return {"rows": 0}
+
+    fin["month"] = pd.to_datetime(fin["date"], errors="coerce").dt.to_period("M").astype(str)
+    froll = fin.groupby(["month","sku"], as_index=False).agg(
+        revenue=("revenue","sum"),
+        fees=("fees","sum"),
+        other=("other","sum"),
+    )
+
+    # Orders → units
+    units = pd.DataFrame(columns=["month","sku","units"])
+    if os.path.exists(ord_path):
+        orders = pd.read_csv(ord_path)
+        if not orders.empty:
+            # Compatible date column names
+            dtcol = None
+            for c in ["purchase_date","order_date","date"]:
+                if c in orders.columns:
+                    dtcol = c
+                    break
+            if dtcol is not None and "sku" in orders.columns:
+                orders["month"] = pd.to_datetime(orders[dtcol], errors="coerce").dt.to_period("M").astype(str)
+                qtycol = "qty" if "qty" in orders.columns else ("quantity" if "quantity" in orders.columns else None)
+                if qtycol is not None:
+                    units = orders.groupby(["month","sku"], as_index=False).agg(units=(qtycol,"sum"))
+
+    # Merge
+    roll = froll.merge(units, on=["month","sku"], how="left")
+    roll["units"] = roll["units"].fillna(0).astype(float)
+
+    # Write
+    roll.to_csv(os.path.join(outdir, "profitability_monthly.csv"), index=False)
+    return {"rows": len(roll)}
