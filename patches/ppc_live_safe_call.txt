@@ -1,0 +1,11 @@
+
+from utils.safe import try_or_log
+
+ok, data = try_or_log(lambda: list_campaigns(state_filter=state), "PPC Live: list_campaigns")
+if not ok:
+    st.error(data)
+else:
+    if not data:
+        st.info("No campaigns returned.")
+    else:
+        st.dataframe(data, use_container_width=True, hide_index=True)

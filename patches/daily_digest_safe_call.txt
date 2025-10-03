@@ -1,0 +1,9 @@
+
+from utils.safe import try_or_log
+
+ok, res = try_or_log(generate, "Daily Digest: generate()")
+if not ok:
+    st.error(res)
+else:
+    st.success("Digest generated.")
+    st.session_state["_digest_paths"] = res

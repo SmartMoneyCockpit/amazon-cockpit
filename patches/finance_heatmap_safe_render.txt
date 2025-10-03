@@ -1,0 +1,16 @@
+
+from utils.safe import wrap_streamlit_call
+
+@wrap_streamlit_call("Finance Heatmap: render heatmap")
+def _render_heatmap():
+    pivot = fin.pivot_table(index="sku", columns="month", values="net", aggfunc="sum").fillna(0)
+    fig, ax = plt.subplots(figsize=(8,4))
+    cax = ax.matshow(pivot.values, cmap="RdYlGn")
+    ax.set_xticks(range(len(pivot.columns)))
+    ax.set_xticklabels(pivot.columns, rotation=45, ha="left")
+    ax.set_yticks(range(len(pivot.index)))
+    ax.set_yticklabels(pivot.index)
+    fig.colorbar(cax)
+    st.pyplot(fig)
+
+_render_heatmap()
