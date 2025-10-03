@@ -79,36 +79,40 @@ c8.metric("Compliance Due", f"{comp_due}")
 st.divider()
 
 st.subheader("Trends")
-colA, colB = st.columns(2)
+col1, col2 = st.columns(2)
 
-with colA:
+with col1:
     if not fin.empty and "month" in fin.columns:
-        trend = fin.groupby("month", as_index=False).agg(revenue=("revenue","sum"), net=("net","sum"))
-        trend["month_dt"] = pd.to_datetime(trend["month"], errors="coerce")
-        trend = trend.sort_values("month_dt").tail(6)
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(figsize=(6, 3))
-        ax.plot(trend["month_dt"].dt.strftime("%Y-%m"), trend["revenue"])
-        ax.set_title("Revenue (last 6 months)")
-        ax.set_xlabel("Month")
-        ax.set_ylabel("Revenue")
-        plt.xticks(rotation=30, ha="right")
-        st.pyplot(fig)
+        try:
+            import matplotlib.pyplot as plt
+            trend = fin.groupby("month", as_index=False).agg(revenue=("revenue","sum"), net=("net","sum"))
+            trend["month_dt"] = pd.to_datetime(trend["month"], errors="coerce")
+            trend = trend.sort_values("month_dt").tail(6)
+            fig, ax = plt.subplots(figsize=(6, 3))
+            ax.plot(trend["month_dt"].dt.strftime("%Y-%m"), trend["revenue"])
+            ax.set_title("Revenue (last 6 months)")
+            ax.set_xlabel("Month"); ax.set_ylabel("Revenue")
+            plt.xticks(rotation=30, ha="right")
+            st.pyplot(fig)
+        except Exception:
+            st.info("Install 'matplotlib' in requirements.txt to see the revenue chart.")
     else:
         st.info("No profitability data yet.")
 
-with colB:
+with col2:
     if not actions.empty:
-        g = actions.copy()
-        g["type"] = g.get("type","unknown")
-        bar = g.groupby("type").size().sort_values(ascending=False).head(5)
-        import matplotlib.pyplot as plt
-        fig2, ax2 = plt.subplots(figsize=(6, 3))
-        ax2.bar(bar.index.astype(str), bar.values)
-        ax2.set_title("Top Action Types")
-        ax2.set_ylabel("Count")
-        plt.xticks(rotation=20, ha="right")
-        st.pyplot(fig2)
+        try:
+            import matplotlib.pyplot as plt
+            g = actions.copy()
+            g["type"] = g.get("type","unknown")
+            bar = g.groupby("type").size().sort_values(ascending=False).head(5)
+            fig2, ax2 = plt.subplots(figsize=(6, 3))
+            ax2.bar(bar.index.astype(str), bar.values)
+            ax2.set_title("Top Action Types"); ax2.set_ylabel("Count")
+            plt.xticks(rotation=20, ha="right")
+            st.pyplot(fig2)
+        except Exception:
+            st.info("Install 'matplotlib' in requirements.txt to see the actions chart.")
     else:
         st.info("No actions yet.")
 
@@ -122,14 +126,10 @@ else:
     st.info("All clear.")
 
 st.subheader("Quick Links")
-st.markdown(
-    "- **📊 Finance Dashboard v2**  
-"
-    "- **📊 Finance Heatmap**  
-"
-    "- **🧭 Trade / Action Hub**  
-"
-    "- **🚨 Alerts Center**  
-"
-    "- **🔄 Data Sync**"
-)
+st.markdown(\"\"\"
+- **📊 Finance Dashboard v2**  
+- **📊 Finance Heatmap**  
+- **🧭 Trade / Action Hub**  
+- **🚨 Alerts Center**  
+- **🔄 Data Sync**
+\"\"\")
