@@ -1,52 +1,73 @@
-"""
-Google Drive upload helper for PDFs (or any bytes).
-Uses a Service Account to upload into a specified folder and returns file metadata.
 
-Secrets expected:
-- gdrive_service_account (JSON)  # optional; if not provided, reuse gsheets_credentials
-- gdrive_digest_folder_id        # Drive folder ID to receive the PDFs
+from __future__ import annotations
+import os, json, io, datetime as dt
+from typing import Optional, Tuple
 
-Requirements:
-- google-api-python-client
-- google-auth-httplib2
-- google-auth-oauthlib
-"""
-import io
-import json
-from typing import Optional, Dict
-import streamlit as st
-
-from google.oauth2.service_account import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-
-DRIVE_SCOPE = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
-
-def _sa_info():
-    blob = st.secrets.get("gdrive_service_account") or st.secrets.get("gsheets_credentials")
-    if not blob:
-        return None
-    return blob if isinstance(blob, dict) else json.loads(blob)
-
-def _drive_service():
-    info = _sa_info()
-    if not info:
-        raise RuntimeError("Missing gdrive_service_account or gsheets_credentials secret")
-    creds = Credentials.from_service_account_info(info, scopes=DRIVE_SCOPE)
-    return build("drive", "v3", credentials=creds, cache_discovery=False)
-
-def upload_bytes_pdf(name: str, data: bytes, folder_id: Optional[str] = None) -> Dict[str, str]:
-    service = _drive_service()
-    file_metadata = {"name": name}
-    if folder_id:
-        file_metadata["parents"] = [folder_id]
-    media = MediaIoBaseUpload(io.BytesIO(data), mimetype="application/pdf", resumable=False)
-    file = service.files().create(body=file_metadata, media_body=media, fields="id, name, webViewLink, webContentLink").execute()
-    # Make link shareable (optional): set permission anyoneWithLink reader
+def _load_credentials_from_env():
     try:
-        service.permissions().create(fileId=file["id"], body={"role": "reader", "type": "anyone"}).execute()
-        # Re-fetch to ensure webViewLink is available
-        file = service.files().get(fileId=file["id"], fields="id, name, webViewLink, webContentLink").execute()
+        from google.oauth2 import service_account
     except Exception:
-        pass
-    return file
+        return None
+    creds_json = os.getenv("SHEETS_CREDENTIALS_JSON", "").strip()
+    if not creds_json:
+        return None
+    SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+    try:
+        if creds_json.startswith("{"):
+            info = json.loads(creds_json)
+            return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+        else:
+            if os.path.exists(creds_json):
+                return service_account.Credentials.from_service_account_file(creds_json, scopes=SCOPES)
+    except Exception:
+        return None
+    return None
+
+def _build_drive_service(creds):
+    try:
+        from googleapiclient.discovery import build
+        return build("drive", "v3", credentials=creds, cache_discovery=False)
+    except Exception:
+        return None
+
+def upload_file(path: str, mime_type: str = "application/octet-stream") -> Tuple[str, str]:
+    # Upload a single file to Drive folder set by DRIVE_DIGEST_FOLDER_ID.
+    if os.getenv("DRIVE_UPLOAD_ENABLED", "true").strip().lower() not in ("1","true","yes"):
+        return ("skipped", "DRIVE_UPLOAD_ENABLED=false")
+    folder_id = os.getenv("DRIVE_DIGEST_FOLDER_ID", "").strip()
+    if not folder_id:
+        return ("skipped", "DRIVE_DIGEST_FOLDER_ID not set")
+    if not os.path.exists(path):
+        return ("skipped", f"file not found: {path}")
+    creds = _load_credentials_from_env()
+    if not creds:
+        return ("skipped", "SHEETS_CREDENTIALS_JSON missing or invalid for Drive scope")
+    svc = _build_drive_service(creds)
+    if not svc:
+        return ("error", "failed to initialize drive service")
+    try:
+        from googleapiclient.http import MediaFileUpload
+        fname = os.path.basename(path)
+        file_metadata = {"name": fname, "parents": [folder_id]}
+        media = MediaFileUpload(path, mimetype=mime_type, resumable=False)
+        file = svc.files().create(body=file_metadata, media_body=media, fields="id").execute()
+        return ("ok", file.get("id"))
+    except Exception as e:
+        return ("error", str(e))
+
+def upload_digest_for_today() -> dict:
+    # Upload today's digest PDF and ZIP if present in DIGEST_OUT_DIR (default /tmp).
+    outdir = os.getenv("DIGEST_OUT_DIR", "/tmp")
+    tag = dt.datetime.now().strftime("%Y%m%d")
+    pdf = os.path.join(outdir, f"digest_{tag}.pdf")
+    zf = os.path.join(outdir, f"digest_{tag}.zip")
+    res = {}
+    if os.path.exists(pdf):
+        res["pdf"] = upload_file(pdf, "application/pdf")
+    else:
+        res["pdf"] = ("skipped", "pdf not found")
+    if os.path.exists(zf):
+        res["zip"] = upload_file(zf, "application/zip")
+    else:
+        res["zip"] = ("skipped", "zip not found")
+    return res
