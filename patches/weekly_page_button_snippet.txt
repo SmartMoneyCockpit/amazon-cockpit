@@ -1,0 +1,14 @@
+
+# --- Weekly send button ---
+st.markdown("—")
+if col[1].button("Send Weekly Now"):
+    try:
+        from utils.distribute import distribute_weekly
+        tag = st.session_state.get("_weekly_paths", {}).get("week")
+        if not tag:
+            import datetime as dt
+            tag = dt.datetime.utcnow().strftime("%G%V")
+        res = distribute_weekly(tag)
+        st.json(res)
+    except Exception as e:
+        st.error(f"Send failed: {e}")

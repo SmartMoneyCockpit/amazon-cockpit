@@ -1,0 +1,36 @@
+
+def distribute_weekly(week_tag: str, subject_prefix: str = "Weekly Digest") -> dict:
+    """
+    Intenta enviar weekly_digest_<YYYYWW>.pdf/.zip via SendGrid y/o Webhook.
+    Requiere las funciones existentes: send_email_via_sendgrid, post_to_webhook.
+    Usa DIGEST_OUT_DIR (default /tmp).
+    """
+    import os
+    tag = week_tag
+    outdir = os.getenv("DIGEST_OUT_DIR", "/tmp")
+    pdf = os.path.join(outdir, f"weekly_digest_{tag}.pdf")
+    zf  = os.path.join(outdir, f"weekly_digest_{tag}.zip")
+    paths = {}
+    if os.path.exists(pdf): paths["pdf"] = pdf
+    if os.path.exists(zf):  paths["zip"] = zf
+
+    results = {}
+    # Email (si está configurado)
+    if os.getenv("SENDGRID_API_KEY") and os.getenv("DIGEST_EMAIL_TO") and os.getenv("DIGEST_EMAIL_FROM"):
+        html = f"<p>Weekly digest {tag} generated.</p>" + ''.join(
+            f"<p>Attached: {os.path.basename(p)}</p>" for p in paths.values()
+        )
+        status, msg = send_email_via_sendgrid(f"{subject_prefix} — {tag}", html, attachments=paths)
+        results["email"] = (status, msg)
+    else:
+        results["email"] = ("skipped", "email env not fully set")
+
+    # Webhook (opcional)
+    if os.getenv("WEBHOOK_URL"):
+        payload = {"type": "weekly_digest", "week": tag, "paths": paths}
+        status, msg = post_to_webhook(payload)
+        results["webhook"] = (status, msg)
+    else:
+        results["webhook"] = ("skipped", "WEBHOOK_URL not set")
+
+    return results

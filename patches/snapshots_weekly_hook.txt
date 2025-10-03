@@ -1,0 +1,17 @@
+
+# === Weekly digest on Sundays (America/Mazatlan) ===
+try:
+    import datetime as dt, pytz
+    tz = pytz.timezone("America/Mazatlan")
+    now = dt.datetime.now(tz)
+    # Domingo (Monday=0 → Sunday=6)
+    if now.weekday() == 6:
+        from scripts import weekly_digest
+        res = weekly_digest.generate()   # crea weekly_digest_<YYYYWW>.pdf/.zip
+        try:
+            from utils.distribute import distribute_weekly
+            distribute_weekly(res.get("week"))
+        except Exception:
+            pass
+except Exception:
+    pass
