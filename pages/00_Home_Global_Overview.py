@@ -47,7 +47,8 @@ for df in [actions, lowdoc, compliance]:
     try: df.columns = [c.strip().lower() for c in df.columns]
     except Exception: pass
 
-today = pd.Timestamp.utcnow().tz_localize("UTC").tz_convert("America/Mazatlan")
+# --- FIX: safe timezone handling ---
+today = pd.Timestamp.now(tz="UTC").tz_convert("America/Mazatlan")
 this_month = today.strftime("%Y-%m")
 this_year = today.year
 
