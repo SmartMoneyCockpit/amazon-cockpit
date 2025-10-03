@@ -1,0 +1,7 @@
+
+# --- KPI Strip (Owner) ---
+try:
+    from utils.kpi_strip import render as render_kpi_strip
+    render_kpi_strip()
+except Exception:
+    pass
