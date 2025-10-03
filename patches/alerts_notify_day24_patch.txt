@@ -1,0 +1,31 @@
+
+# Day-24: include critical RP in change detection & send immediate note
+try:
+    crit = _read_tab("alerts_out_revenue_protection_critical")
+    if isinstance(crit, pd.DataFrame) and not crit.empty:
+        # Augment payload before fingerprint
+        if "revenue_protection_critical" not in payload:
+            payload["revenue_protection_critical"] = {
+                "count": int(len(crit)),
+                "sample": crit.head(5).to_dict(orient="records")
+            }
+        # Force send when new criticals detected
+        # (Compare counts; if higher than remembered, ignore fingerprint equality)
+        state = _load_state()
+        prev = state.get("last_crit_count", 0)
+        cur = int(len(crit))
+        if cur > prev:
+            html = _html_from_payload(payload)
+            results = {}
+            results["email"] = _send_email("Revenue Protection — CRITICAL", html)
+            results["webhook"] = _send_webhook({"type":"alerts_rp_critical", "payload": payload})
+            state["last_crit_count"] = cur
+            _save_state(state)
+            results["status"] = "sent_critical"
+            return results
+        else:
+            # update stored count even if no send
+            state["last_crit_count"] = cur
+            _save_state(state)
+except Exception:
+    pass

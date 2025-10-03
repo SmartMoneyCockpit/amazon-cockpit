@@ -1,0 +1,8 @@
+
+# DAILY DIGEST PATCH NOTE (Day-24)
+# In scripts/daily_digest.py, after building CSV pack:
+#   rpcrit = _read_tab('alerts_out_revenue_protection_critical')
+#   if isinstance(rpcrit, pd.DataFrame) and not rpcrit.empty:
+#       z.writestr('alerts_out_revenue_protection_critical.csv', rpcrit.to_csv(index=False))
+
+# And add a small "Revenue Protection — CRITICAL (Top 5)" table in the PDF like the other modules.

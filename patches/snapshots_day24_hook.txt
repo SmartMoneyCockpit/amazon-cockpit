@@ -1,0 +1,10 @@
+
+# Day-24: Revenue Protection CRITICAL export
+try:
+    from utils.revenue_protection_critical import build_revenue_protection_critical
+    crit = build_revenue_protection_critical()
+    if isinstance(crit, pd.DataFrame) and not crit.empty:
+        from utils.sheets_writer import write_df
+        write_df("alerts_out_revenue_protection_critical", crit)
+except Exception:
+    pass

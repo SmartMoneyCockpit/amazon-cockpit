@@ -1,0 +1,25 @@
+
+# Day-24: inject CRITICAL Revenue Protection into actions_out (top, red)
+try:
+    crit = None
+    from utils.revenue_protection_critical import build_revenue_protection_critical
+    crit = build_revenue_protection_critical()
+    if isinstance(crit, pd.DataFrame) and not crit.empty:
+        add = crit.copy()
+        add["type"] = "revenue_protection_critical"
+        add["key"] = add.get("sku")
+        add["detail"] = add.apply(lambda r: f"month={r.get('month','')}, net={r.get('net_margin_pct'):.1f}%, gross={r.get('gross_margin_pct') if pd.notna(r.get('gross_margin_pct')) else 'N/A'}%", axis=1)
+        add["severity"] = "red"
+        add["suggested_action"] = add.get("suggested_action") or "Cut PPC bids now + review COGS/fees/price"
+        add = add[["type","key","detail","severity","suggested_action"]]
+        # Prepend to actions_out
+        try:
+            base = actions if 'actions' in globals() else None
+        except Exception:
+            base = None
+        if base is not None and not base.empty:
+            actions = pd.concat([add, base], ignore_index=True)
+        else:
+            actions = add
+except Exception:
+    pass
