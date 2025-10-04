@@ -1,8 +1,7 @@
-import os
-import json
-import datetime as dt
+import os, json, datetime as dt
 import pandas as pd
 import streamlit as st
+from utils.digest_formatter import read_queue, build_markdown_summary, build_plaintext_summary
 
 st.set_page_config(page_title="Daily Digest", layout="wide")
 st.title("Daily Digest")
@@ -10,21 +9,7 @@ st.title("Daily Digest")
 DIGEST_FILE = os.path.join("alerts", "digest_queue.jsonl")
 os.makedirs("alerts", exist_ok=True)
 
-def _read_queue(path: str):
-    rows = []
-    if not os.path.exists(path):
-        return rows
-    with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rows.append(json.loads(line))
-            except Exception:
-                # skip corrupted lines
-                continue
-    return rows
+rows = read_queue(DIGEST_FILE)
 
 def _format_rows(rows):
     if not rows:
@@ -47,7 +32,6 @@ def _format_rows(rows):
         })
     df = pd.DataFrame(data)
     if not df.empty:
-        # Sort newest first
         try:
             df["ts_parsed"] = pd.to_datetime(df["ts"], errors="coerce")
             df = df.sort_values("ts_parsed", ascending=False).drop(columns=["ts_parsed"])
@@ -55,11 +39,10 @@ def _format_rows(rows):
             pass
     return df
 
-rows = _read_queue(DIGEST_FILE)
 df = _format_rows(rows)
 
 # Controls
-c1, c2, c3 = st.columns([1,1,2])
+c1, c2, c3, c4 = st.columns([1,1,1,2])
 with c1:
     if st.button("Refresh"):
         st.experimental_rerun()
@@ -71,6 +54,41 @@ with c2:
             st.experimental_rerun()
         except Exception as e:
             st.error(f"Could not clear queue: {e}")
+with c3:
+    # Build text summary (markdown + plaintext)
+    md_summary = build_markdown_summary(rows)
+    txt_summary = build_plaintext_summary(rows)
+    # Copy to clipboard via HTML/JS (Streamlit component)
+    st.download_button(
+        "Download TXT",
+        data=txt_summary.encode("utf-8"),
+        file_name=f"digest_{dt.date.today().isoformat()}.txt",
+        mime="text/plain"
+    )
+with c4:
+    # Show a copy button using a tiny HTML/JS component
+    st.markdown("")
+    st.markdown("")
+    html = f'''
+    <button id="copyBtn" style="padding:6px 12px;border-radius:6px;border:1px solid #ddd;cursor:pointer;">
+        Copy Summary
+    </button>
+    <script>
+    const txt = `{txt_summary.replace("`","\`").replace("\n","\\n")}`;
+    const btn = document.getElementById('copyBtn');
+    btn.addEventListener('click', async () => {{
+        try {{
+            await navigator.clipboard.writeText(txt);
+            btn.innerText = "Copied!";
+            setTimeout(() => btn.innerText = "Copy Summary", 1200);
+        }} catch (e) {{
+            btn.innerText = "Copy failed";
+            setTimeout(() => btn.innerText = "Copy Summary", 1200);
+        }}
+    }});
+    </script>
+    '''
+    st.components.v1.html(html, height=40)
 
 st.divider()
 st.subheader("Queued Alerts")
@@ -79,15 +97,6 @@ if df.empty:
 else:
     st.dataframe(df, use_container_width=True)
 
-    # Export helpers
-    st.markdown("### Export")
-    export_col1, export_col2 = st.columns([1,1])
-    with export_col1:
-        csv_name = f"digest_export_{dt.date.today().isoformat()}.csv"
-        st.download_button("Download CSV", data=df.to_csv(index=False).encode("utf-8"),
-                           file_name=csv_name, mime="text/csv")
-    with export_col2:
-        json_name = f"digest_export_{dt.date.today().isoformat()}.jsonl"
-        jsonl = "\n".join(json.dumps(r, ensure_ascii=False) for r in rows)
-        st.download_button("Download JSONL", data=jsonl.encode("utf-8"),
-                           file_name=json_name, mime="application/json")
+st.divider()
+st.subheader("Summary Preview")
+st.markdown(md_summary)
