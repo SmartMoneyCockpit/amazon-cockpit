@@ -1,44 +1,36 @@
-
-import streamlit as st
+import datetime as dt
 import pandas as pd
-from utils.finance_source import read_profitability_monthly
-from utils.auth import gate
-import utils.security as sec
+import streamlit as st
+from infra.sheets_client import SheetsClient
+from utils.exporters import export_finance_monthly
 
 st.set_page_config(page_title="Finance Monthly Export", layout="wide")
-sec.enforce()
-if not gate(required_admin=False):
-    st.stop()
+st.title("Finance Monthly Export")
 
-st.title("💾 Finance Monthly Export")
-st.caption("Reads from the **profitability_monthly** tab (or /tmp CSV fallback) and lets you export filtered views.")
+st.caption("Exports the 'Finances' worksheet for a chosen month to snapshots/YYYY-MM/. PDF is optional (auto if reportlab is installed).")
 
-df = read_profitability_monthly()
-if df.empty:
-    st.info("No rows yet. Run **Data Sync → Refresh + Rollup + Sync to Sheets** first.")
-    st.stop()
+# Pick month/year
+today = dt.date.today()
+col1, col2 = st.columns([1,2])
+with col1:
+    year = st.number_input("Year", min_value=2000, max_value=today.year+1, value=today.year, step=1)
+with col2:
+    month = st.selectbox("Month", list(range(1,13)), index=today.month-1, format_func=lambda m: f"{m:02d}")
 
-months = sorted(df["month"].dropna().astype(str).unique())
-sel_months = st.multiselect("Months", options=months, default=months[-1:] if months else [])
-sku_text = st.text_input("Filter by SKU contains", "")
+def _read_finances():
+    try:
+        sc = SheetsClient()
+        rows = sc.read_table("Finances")
+        return pd.DataFrame(rows)
+    except Exception as e:
+        st.info("Google Sheets not connected — exporting an empty CSV.")
+        return pd.DataFrame(columns=["date","gmv","acos","tacos","refund_rate"])
 
-flt = df.copy()
-if sel_months:
-    flt = flt[flt["month"].isin(sel_months)]
-if sku_text:
-    flt = flt[flt["sku"].astype(str).str.contains(sku_text, case=False, na=False)]
-
-for col in ["revenue","fees","other"]:
-    if col not in flt.columns:
-        flt[col] = 0.0
-flt["net"] = flt["revenue"].fillna(0) - flt["fees"].fillna(0) - flt["other"].fillna(0)
-
-st.subheader("Preview")
-st.dataframe(flt, use_container_width=True, hide_index=True)
-
-st.download_button(
-    "⬇️ Download Filtered CSV",
-    data=flt.to_csv(index=False).encode("utf-8"),
-    file_name="finance_profitability_monthly_filtered.csv",
-    mime="text/csv"
-)
+if st.button("Export Now"):
+    df = _read_finances()
+    csv_path, maybe_pdf = export_finance_monthly(df, int(year), int(month))
+    st.success(f"Exported CSV to: {csv_path}")
+    if maybe_pdf is not None:
+        st.success(f"Exported PDF to: {maybe_pdf}")
+    else:
+        st.info("PDF skipped (install 'reportlab' to enable PDF output).")
