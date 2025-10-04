@@ -4,3 +4,6 @@ numpy>=1.26.4
 XlsxWriter>=3.2.0
 gspread>=6.0.0
 google-auth>=2.22.0
+requests>=2.32.0
+tenacity>=8.2.0
+matplotlib
