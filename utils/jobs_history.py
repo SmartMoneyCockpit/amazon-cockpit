@@ -1,7 +1,7 @@
 
 from __future__ import annotations
 import os, json, datetime as dt
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 LOG_FILE = os.path.join("logs", "vega_jobs.jsonl")
 
@@ -44,3 +44,20 @@ def filter_jobs(rows: List[Dict[str, Any]], job_names=None, statuses=None, date_
             continue
         out.append(r)
     return out
+
+def read_jobs_raw(path: str = LOG_FILE) -> List[str]:
+    """Return raw jsonl lines for debugging."""
+    if not os.path.exists(path):
+        return []
+    with open(path, "r", encoding="utf-8") as f:
+        return [ln.rstrip("\n") for ln in f.readlines()]
+
+def extract_error_snippet(rec: Dict[str, Any], max_len: int = 600) -> Optional[str]:
+    """Try to show a compact error message or detail field."""
+    detail = rec.get("detail") or ""
+    if not isinstance(detail, str):
+        try:
+            detail = json.dumps(detail)[:max_len]
+        except Exception:
+            detail = str(detail)[:max_len]
+    return detail[:max_len] if detail else None

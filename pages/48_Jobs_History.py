@@ -1,14 +1,13 @@
 
-import io, datetime as dt
+import io, datetime as dt, json
 import pandas as pd
 import streamlit as st
-from utils.jobs_history import read_jobs, filter_jobs
+from utils.jobs_history import read_jobs, filter_jobs, read_jobs_raw, extract_error_snippet
 
 st.set_page_config(page_title="Jobs History", layout="wide")
 st.title("Jobs History")
 
 LOG_FILE = "logs/vega_jobs.jsonl"
-
 rows = read_jobs(LOG_FILE)
 
 # Build options from data
@@ -29,16 +28,14 @@ with c4:
 # Apply filters
 rows_f = filter_jobs(rows, job_names=sel_jobs, statuses=sel_status, date_from=date_from, date_to=date_to)
 
-# DataFrame
+# DataFrame helper
 def _mk_df(rows):
     if not rows:
         return pd.DataFrame(columns=["ts","job","status","detail"])
     df = pd.DataFrame(rows)
-    # stable columns
     for col in ["ts","job","status","detail"]:
         if col not in df.columns:
             df[col] = ""
-    # sort newest first
     try:
         df["_ts"] = pd.to_datetime(df["ts"], errors="coerce")
         df = df.sort_values("_ts", ascending=False).drop(columns=["_ts"])
@@ -61,8 +58,30 @@ if df.empty:
 else:
     st.dataframe(df, use_container_width=True)
 
-    # Export
     st.divider()
-    st.subheader("Export")
-    csv_bytes = df.to_csv(index=False).encode("utf-8")
-    st.download_button("Download CSV", data=csv_bytes, file_name=f"jobs_history_{dt.date.today().isoformat()}.csv", mime="text/csv")
+    st.subheader("Per-Run Details")
+    # Selector for a single record by timestamp + job
+    options = [f"{r.get('ts','')} — {r.get('job','')} ({r.get('status','')})" for r in rows_f]
+    idx = st.selectbox("Select a run", options=list(range(len(options))), format_func=lambda i: options[i] if options else "", index=0 if options else 0)
+    if options:
+        rec = rows_f[idx]
+        cdt1, cdt2 = st.columns([2,2])
+        with cdt1:
+            st.markdown("**Record JSON**")
+            st.code(json.dumps(rec, indent=2, ensure_ascii=False))
+        with cdt2:
+            st.markdown("**Error / Detail Snippet**")
+            snippet = extract_error_snippet(rec) or "(no detail)"
+            st.code(snippet)
+        # download JSON
+        st.download_button("Download record JSON", data=json.dumps(rec, ensure_ascii=False).encode("utf-8"),
+                           file_name=f"job_record_{rec.get('job','')}_{rec.get('ts','')}.json", mime="application/json")
+
+    st.divider()
+    st.subheader("Raw Log Tail (debug)")
+    raw_lines = read_jobs_raw(LOG_FILE)
+    tail_n = st.slider("Show last N lines", min_value=10, max_value=500, value=80, step=10)
+    if raw_lines:
+        st.code("\n".join(raw_lines[-tail_n:]))
+    else:
+        st.caption("No raw log lines yet.")
