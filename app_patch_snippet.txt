@@ -1,0 +1,21 @@
+# --- BEGIN: Non-invasive main panel additions (snapshot button + validation) ---
+import pandas as _pd
+from utils.validators import validate_settings_sheet, SchemaError
+from snapshot import export_daily_snapshot
+
+c1, c2 = st.columns([1,1])
+with c1:
+    if st.button("Export Snapshot Now"):
+        p = export_daily_snapshot()
+        st.success(f"Snapshot exported to: {p}")
+with c2:
+    st.caption("Validation: checks 'Settings' sheet has key/value columns.")
+
+# Attempt validation only when data is loaded (avoid errors in fallback)
+try:
+    sc = SheetsClient()
+    _rows = sc.read_table("Settings")
+    validate_settings_sheet(_rows)
+except Exception as _e:
+    pass
+# --- END: Non-invasive additions ---
