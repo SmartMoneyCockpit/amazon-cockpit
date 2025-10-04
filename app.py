@@ -73,7 +73,7 @@ with st.sidebar:
         except Exception as e:
             st.error(f"Connection test failed: {e}")
 
-# ---------------- Main: Settings preview table ----------------
+# ---------------- Main: Settings preview table (QUIET FALLBACK) ----------------
 st.title("Vega Cockpit • Google Sheets Integration")
 st.subheader("Settings preview")
 try:
@@ -86,4 +86,14 @@ try:
     else:
         st.info("No rows yet in 'Settings'.")
 except Exception as e:
-    st.warning(f"Could not load Settings: {e}")
+    # Quiet fallback: no yellow warning; show a friendly placeholder table
+    import pandas as pd
+    placeholder = pd.DataFrame([
+        { "key": "timezone", "value": "— (connect Google Sheets)" },
+        { "key": "base_currency", "value": "—" },
+        { "key": "report_start_date", "value": "—" },
+        { "key": "ads_enabled", "value": "—" },
+        { "key": "auto_snapshot_pdf", "value": "—" },
+    ])
+    st.caption("Not connected to Google Sheets yet — showing placeholder settings.")
+    st.dataframe(placeholder, use_container_width=True)
