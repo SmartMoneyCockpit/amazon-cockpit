@@ -1,0 +1,5 @@
+
+# --- BEGIN Step 10: Healthcheck Chip (menu-safe) ---
+from components.healthchip import render_healthchip
+render_healthchip()
+# --- END Step 10 ---
