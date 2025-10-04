@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 from infra.sheets_client import SheetsClient
+st.set_page_config(page_title="Vega Cockpit", layout="wide", initial_sidebar_state="expanded")
 
 st.set_page_config(
     page_title="Vega Cockpit - Google Sheets",
