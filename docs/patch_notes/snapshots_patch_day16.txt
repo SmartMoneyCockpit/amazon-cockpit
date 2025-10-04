@@ -1,0 +1,10 @@
+
+# Paste into scripts/snapshots.py after other exports:
+try:
+    from utils.reorder_forecast import build_reorder_plan
+    plan = build_reorder_plan()
+    from utils.sheets_writer import write_df
+    if isinstance(plan, pd.DataFrame) and not plan.empty:
+        write_df("reorder_plan", plan)
+except Exception:
+    pass

@@ -1,0 +1,7 @@
+
+# Paste at the end of scripts/snapshots.py after building all alerts & actions
+try:
+    from utils.alerts_notify import notify_if_new
+    notify_if_new(subject_prefix="Alerts Update")
+except Exception:
+    pass

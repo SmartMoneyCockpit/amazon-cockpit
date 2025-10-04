@@ -1,0 +1,7 @@
+
+# Paste at the end of scripts/snapshots.py after daily_digest.generate()
+try:
+    from utils.distribute import distribute_today
+    distribute_today()
+except Exception:
+    pass
