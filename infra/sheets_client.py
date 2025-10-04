@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 import os, json
 import gspread
@@ -8,7 +7,7 @@ from google.oauth2.service_account import Credentials
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 def _read_service_account_creds():
-    # Priority 1: st.secrets as JSON blob
+    # Prefer secrets, then env JSON, then file path
     try:
         if "gcp_service_account_json" in st.secrets:
             info = st.secrets["gcp_service_account_json"]
@@ -21,7 +20,6 @@ def _read_service_account_creds():
     except Exception:
         pass
 
-    # Priority 2: env var JSON content
     env_json = os.getenv("GCP_SERVICE_ACCOUNT_JSON")
     if env_json:
         info = json.loads(env_json)
@@ -30,7 +28,6 @@ def _read_service_account_creds():
             "https://www.googleapis.com/auth/drive"
         ])
 
-    # Priority 3: file path from env or default
     path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or "gcp_service_account.json"
     if os.path.exists(path):
         return Credentials.from_service_account_file(path, scopes=[
@@ -41,7 +38,6 @@ def _read_service_account_creds():
     raise FileNotFoundError("No GCP credentials found. Provide st.secrets['gcp_service_account_json'] or env GCP_SERVICE_ACCOUNT_JSON or a GOOGLE_APPLICATION_CREDENTIALS path.")
 
 def _get_sheet_key():
-    # st.secrets first, then env
     key = None
     try:
         key = st.secrets.get("sheets_key", None)

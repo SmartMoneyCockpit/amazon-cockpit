@@ -2,26 +2,80 @@ import os
 import streamlit as st
 from datetime import datetime
 from infra.sheets_client import SheetsClient
+
 st.set_page_config(page_title="Vega Cockpit - Sheets Test", layout="wide")
 
-st.markdown("""<style>[data-testid=\"stSidebarNav\"]{display:none!important;} nav[aria-label=\"Sidebar\"] ul{display:none!important;}</style>""", unsafe_allow_html=True)
+# Hide default Streamlit sidebar page list so only our accordion shows
+st.markdown(
+    """
+    <style>
+    [data-testid="stSidebarNav"] { display:none !important; }
+    nav[aria-label="Sidebar"] ul { display:none !important; }
+    </style>
+    """, unsafe_allow_html=True
+)
 
+# ============ Amazon-style accordion sidebar ============
+with st.sidebar:
+    st.subheader("Menu")
+    # Quick Settings link (optional)
+    st.page_link("pages/45_Settings.py", label="⚙️ Settings (quick)")
+    st.divider()
 
+    with st.expander("Home & Health", expanded=False):
+        st.page_link("pages/00_About_and_Health.py", label="About and Health")
+        st.page_link("pages/00_Home_Global_Overview.py", label="Home Global Overview")
+        st.page_link("pages/01_Data_Seed.py", label="Data Seed")
 
+    with st.expander("Product & Ads", expanded=False):
+        st.page_link("pages/10_Product_Tracker.py", label="Product Tracker")
+        st.page_link("pages/14_PPC_Manager_Safe.py", label="PPC Manager Safe")
+        st.page_link("pages/15_PPC_Import_Wizard.py", label="PPC Import Wizard")
+        st.page_link("pages/21_Aplus_Seo_Indexing.py", label="Aplus SEO Indexing")
+        st.page_link("pages/21_Aplus_SEO_Panel.py", label="Aplus SEO Panel")
 
+    with st.expander("Finance", expanded=False):
+        st.page_link("pages/27_Finance_Dashboard_v2.py", label="Finance Dashboard v2")
+        st.page_link("pages/26_Finance_Monthly_Export.py", label="Finance Monthly Export")
+        st.page_link("pages/39_Margin_Scenario.py", label="Margin Scenario")
+        st.page_link("pages/36_COGS_Manager.py", label="COGS Manager")
 
+    with st.expander("Orders & Catalog", expanded=False):
+        st.page_link("pages/28_Orders_Viewer.py", label="Orders Viewer")
+        st.page_link("pages/29_Catalog_Enrichment.py", label="Catalog Enrichment")
+        st.page_link("pages/38_Reorder_Forecast.py", label="Reorder Forecast")
+        st.page_link("pages/24_Product_Research_Scoring.py", label="Product Research Scoring")
+        st.page_link("pages/25_Data_Sync.py", label="Data Sync")
+
+    with st.expander("Alerts & Digests", expanded=False):
+        st.page_link("pages/31_Alerts_Center.py", label="Alerts Center")
+        st.page_link("pages/41_Alerts_Notifications.py", label="Alerts Notifications")
+        st.page_link("pages/34_Daily_Digest.py", label="Daily Digest")
+        st.page_link("pages/40_Digest_Distribution.py", label="Digest Distribution")
+        st.page_link("pages/33_Finance_Heatmap.py", label="Finance Heatmap")
+        st.page_link("pages/32_Trade_Action_Hub.py", label="Trade Action Hub")
+
+    with st.expander("Compliance & Vault", expanded=False):
+        st.page_link("pages/22_Compliance_Vault_App.py", label="Compliance Vault App")
+        st.page_link("pages/37_Revenue_Protection.py", label="Revenue Protection")
+        st.page_link("pages/40_Compliance_Vault.py", label="Compliance Vault")
+
+    with st.expander("Utilities", expanded=False):
+        st.page_link("pages/35_Drive_Upload_Test.py", label="Drive Upload Test")
+        st.page_link("pages/44_Settings_Controls.py", label="Settings Controls")
+        st.page_link("pages/42_PPC_Live.py", label="PPC Live")
+
+    st.header("Utilities")
+    if st.button("Test Google Sheets Connection"):
+        try:
+            sc = SheetsClient()
+            _ = sc.read_table("Settings")
+            st.success("Sheets connection OK.")
+        except Exception as e:
+            st.error(f"Connection test failed: {e}")
+
+# ============ Main page ============
 st.title("Vega Cockpit • Google Sheets Integration")
-
-st.sidebar.header("Utilities")
-if st.sidebar.button("Test Google Sheets Connection"):
-    try:
-        sc = SheetsClient()
-        ws = sc.sh.worksheet("Settings")
-        ws.append_row([f"ui_ping_at_{datetime.utcnow().isoformat()}", "from streamlit button"])
-        st.success("Ping row appended to 'Settings' ✅")
-        st.code("Appended: ['ui_ping_at_<utc-iso>', 'from streamlit button']")
-    except Exception as e:
-        st.error(f"Connection test failed: {e}")
 
 st.subheader("Settings preview")
 try:
