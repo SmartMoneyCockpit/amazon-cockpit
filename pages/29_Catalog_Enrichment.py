@@ -1,75 +1,51 @@
 import streamlit as st
 import pandas as pd
-from utils.auth import gate
-import utils.security as sec
+from infra.sheets_client import SheetsClient
+from utils.catalog_tools import demo_catalog, normalize, validation_badges
 
-st.set_page_config(page_title='Catalog Enrichment', layout='wide')
-sec.enforce()
-if not gate(required_admin=False):
-    st.stop()
+st.set_page_config(page_title="Catalog Enrichment", layout="wide")
+st.title("Catalog Enrichment")
 
-st.title('🗂️ Catalog Enrichment')
-st.caption('Fetch title/brand/category/dimensions for your ASINs and cache them to catalog_cache. Sources: orders, inventory, or manual list.')
+@st.cache_data(show_spinner=False, ttl=300)
+def _read_catalog():
+    try:
+        sc = SheetsClient()
+        rows = sc.read_table("Catalog")
+        return normalize(pd.DataFrame(rows))
+    except Exception:
+        return normalize(demo_catalog())
 
-SB = None
-try:
-    from utils import sheets_bridge as SB
-except Exception:
-    SB = None
+d = _read_catalog()
+v = validation_badges(d)
 
-def read_tab(name: str) -> pd.DataFrame:
-    if SB is not None:
-        try:
-            return SB.read_tab(name)
-        except Exception:
-            pass
-    return pd.DataFrame()
+# Summary counts
+c1, c2, c3 = st.columns(3)
+c1.metric("Title OK (≥60 chars)", int(v["title_ok"].sum()))
+c2.metric("Description OK", int(v["desc_ok"].sum()))
+c3.metric("Price OK (>0)", int(v["price_ok"].sum()))
 
-src = st.radio('ASIN source', ['Orders (last N days)', 'Inventory (all)', 'Manual paste/list'])
+st.divider()
+st.subheader("Validation Badges")
 
-asins = []
-if src == 'Orders (last N days)':
-    days = st.slider('Days back', 7, 120, 30, 1)
-    orders = read_tab('orders')
-    if orders.empty:
-        st.info('No orders tab found or it is empty. Run Data Sync first.')
-    else:
-        orders.columns = [c.strip().lower() for c in orders.columns]
-        if 'purchase_date' in orders.columns:
-            orders['purchase_date'] = pd.to_datetime(orders['purchase_date'], errors='coerce')
-            cutoff = pd.Timestamp.utcnow() - pd.Timedelta(days=days)
-            orders = orders[orders['purchase_date'] >= cutoff]
-        asins = sorted(orders.get('asin', pd.Series([], dtype=str)).dropna().astype(str).unique().tolist())
-        st.write(f'Found **{len(asins)}** unique ASINs from orders.')
-elif src == 'Inventory (all)':
-    inv = read_tab('inventory')
-    if inv.empty:
-        st.info('No inventory tab found or it is empty. Run Data Sync first.')
-    else:
-        inv.columns = [c.strip().lower() for c in inv.columns]
-        asins = sorted(inv.get('asin', pd.Series([], dtype=str)).dropna().astype(str).unique().tolist())
-        st.write(f'Found **{len(asins)}** unique ASINs from inventory.')
-else:
-    text = st.text_area('Paste ASINs (comma/space/newline separated)', '')
-    if text.strip():
-        raw = [t.strip() for t in text.replace(',', ' ').split() if t.strip()]
-        asins = sorted(list(dict.fromkeys(raw)))
-        st.write(f'Parsed **{len(asins)}** ASINs.')
+def _badge(ok: bool, label: str):
+    color = "#16a34a" if ok else "#ef4444"
+    return f"<span style='padding:.15rem .5rem;border-radius:999px;background:{color};color:#fff;font-size:.75rem;'>{label}</span>"
 
-if asins:
-    st.subheader('Preview ASINs')
-    st.code(', '.join(asins[:50]) + (' ...' if len(asins) > 50 else ''))
+# Build a compact table with badges
+show = v.copy()
+show["Title Badge"] = show["title_ok"].apply(lambda x: _badge(bool(x), "OK") if x else _badge(False, "Short"))
+show["Desc Badge"]  = show["desc_ok"].apply(lambda x: _badge(bool(x), "OK") if x else _badge(False, "Missing"))
+show["Price Badge"] = show["price_ok"].apply(lambda x: _badge(bool(x), "OK") if x else _badge(False, "Invalid"))
 
-    if st.button('🚀 Enrich & Cache to catalog_cache'):
-        try:
-            from integrations.catalog import enrich_asins
-            df = enrich_asins(asins)
-            if df is not None and not df.empty:
-                st.success(f'Enriched and cached {len(df)} rows to catalog_cache.')
-                st.dataframe(df, use_container_width=True, hide_index=True)
-            else:
-                st.warning('No details returned (lib not installed, creds not present, or API empty).')
-        except Exception as e:
-            st.error(f'Failed to enrich: {e}')
-else:
-    st.info('Select a source and load ASINs to enable enrichment.')
+cols = ["asin","sku","title","price","Title Badge","Desc Badge","Price Badge"]
+st.write("")
+st.caption("Badges are visual only; export corrected CSV when ready.")
+
+with st.expander("Show table", expanded=True):
+    st.dataframe(show[cols], use_container_width=True, hide_index=True)
+
+# Export corrected CSV
+st.divider()
+if st.button("Export Corrected CSV"):
+    csv = v.to_csv(index=False).encode("utf-8")
+    st.download_button("Download", data=csv, file_name="catalog_validated.csv", mime="text/csv")

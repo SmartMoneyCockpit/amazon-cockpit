@@ -1,50 +1,52 @@
-
-import streamlit as st
+import datetime as dt
 import pandas as pd
-from datetime import datetime, timedelta
-from utils.auth import gate
-import utils.security as sec
+import streamlit as st
+from infra.sheets_client import SheetsClient
+from utils.orders_tools import demo_orders, normalize, kpis
 
 st.set_page_config(page_title="Orders Viewer", layout="wide")
-sec.enforce()
-if not gate(required_admin=False):
-    st.stop()
+st.title("Orders Viewer")
 
-st.title("📦 Orders Viewer")
-
-def read_orders() -> pd.DataFrame:
+@st.cache_data(show_spinner=False, ttl=300)
+def _read_orders():
     try:
-        from utils import sheets_bridge as SB
-        return SB.read_tab("orders")
+        sc = SheetsClient()
+        rows = sc.read_table("Orders")
+        return normalize(pd.DataFrame(rows))
     except Exception:
-        return pd.DataFrame(columns=["order_id","purchase_date","status","sku","asin","qty","price"])
+        return normalize(demo_orders())
 
-df = read_orders()
-if df.empty:
-    st.info("No orders yet. Run **Data Sync** first.")
-    st.stop()
+d = _read_orders()
 
-# Normalize and parse date
-df.columns = [c.strip().lower() for c in df.columns]
-if "purchase_date" in df.columns:
-    df["purchase_date"] = pd.to_datetime(df["purchase_date"], errors="coerce")
+# Filters
+c1, c2, c3, c4 = st.columns([1.2,1.2,1,1.6])
+with c1:
+    start = st.date_input("Start", value=(dt.date.today() - dt.timedelta(days=30)))
+with c2:
+    end = st.date_input("End", value=dt.date.today())
+with c3:
+    countries = sorted([x for x in d["country"].dropna().unique().tolist() if x])
+    sel_country = st.multiselect("Country", countries, default=countries)
+with c4:
+    query = st.text_input("ASIN / SKU contains", value="")
 
-c1, c2, c3 = st.columns(3)
-days = c1.slider("Days back", 7, 90, 30, 1)
-sku_q = c2.text_input("SKU contains", "")
-asin_q = c3.text_input("ASIN contains", "")
+mask = (d["date"] >= start) & (d["date"] <= end)
+if sel_country:
+    mask &= d["country"].isin(sel_country)
+if query:
+    q = query.lower()
+    mask &= (d["asin"].fillna("").str.lower().str.contains(q) | d["sku"].fillna("").str.lower().str.contains(q))
 
-since = pd.Timestamp.utcnow() - pd.Timedelta(days=days)
-flt = df.copy()
-if "purchase_date" in flt.columns:
-    flt = flt[flt["purchase_date"] >= since]
-if sku_q:
-    flt = flt[flt["sku"].astype(str).str.contains(sku_q, case=False, na=False)]
-if asin_q:
-    flt = flt[flt["asin"].astype(str).str.contains(asin_q, case=False, na=False)]
+df = d.loc[mask].copy()
 
+# KPIs
+m = kpis(df)
+k1, k2, k3 = st.columns(3)
+k1.metric("Orders", f"{m['orders']:,}")
+k2.metric("Revenue", f"${m['revenue']:,.2f}")
+k3.metric("Avg Order Value", f"${m['aov']:,.2f}")
+
+st.divider()
 st.subheader("Results")
-st.dataframe(flt, use_container_width=True, hide_index=True)
-
-st.download_button("⬇️ Download CSV", data=flt.to_csv(index=False).encode("utf-8"),
-                   file_name="orders_view.csv", mime="text/csv")
+with st.expander("Show table", expanded=True):
+    st.dataframe(df, use_container_width=True)
