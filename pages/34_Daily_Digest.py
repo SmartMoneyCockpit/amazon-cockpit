@@ -11,13 +11,43 @@ os.makedirs("alerts", exist_ok=True)
 
 rows = read_queue(DIGEST_FILE)
 
+def _rule_name(r):
+    if not isinstance(r, dict):
+        return ""
+    return r.get("name") or f"{r.get('metric')} {r.get('operator')} {r.get('threshold')}"
+
+# Filters (local UI only)
+all_metrics = sorted({ (r.get("rule") or {}).get("metric","") for r in rows if isinstance(r, dict)} - {""})
+all_types = sorted({ r.get("type","") for r in rows if isinstance(r, dict)} - {""})
+
+fc1, fc2, fc3 = st.columns([1,1,2])
+with fc1:
+    f_metrics = st.multiselect("Filter metrics", all_metrics, default=all_metrics)
+with fc2:
+    f_types = st.multiselect("Filter types", all_types, default=all_types)
+with fc3:
+    st.caption("Filters apply to both the table and the summary below.")
+
+def _apply_filters(rows, metrics, types):
+    if not rows:
+        return []
+    out = []
+    for r in rows:
+        rule = r.get("rule") or {}
+        metric = rule.get("metric","")
+        typ = r.get("type","")
+        if metrics and metric not in metrics:
+            continue
+        if types and typ not in types:
+            continue
+        out.append(r)
+    return out
+
+rows_f = _apply_filters(rows, f_metrics, f_types)
+
 def _format_rows(rows):
     if not rows:
         return pd.DataFrame(columns=["ts", "type", "rule", "reason"])
-    def _rule_name(r):
-        if not isinstance(r, dict):
-            return ""
-        return r.get("name") or f"{r.get('metric')} {r.get('operator')} {r.get('threshold')}"
     data = []
     for r in rows:
         ts = r.get("ts")
@@ -39,7 +69,7 @@ def _format_rows(rows):
             pass
     return df
 
-df = _format_rows(rows)
+df = _format_rows(rows_f)
 
 # Controls
 c1, c2, c3, c4 = st.columns([1,1,1,2])
@@ -55,10 +85,7 @@ with c2:
         except Exception as e:
             st.error(f"Could not clear queue: {e}")
 with c3:
-    # Build text summary (markdown + plaintext)
-    md_summary = build_markdown_summary(rows)
-    txt_summary = build_plaintext_summary(rows)
-    # Copy to clipboard via HTML/JS (Streamlit component)
+    txt_summary = build_plaintext_summary(rows_f)
     st.download_button(
         "Download TXT",
         data=txt_summary.encode("utf-8"),
@@ -66,9 +93,8 @@ with c3:
         mime="text/plain"
     )
 with c4:
-    # Show a copy button using a tiny HTML/JS component
-    st.markdown("")
-    st.markdown("")
+    md_summary = build_markdown_summary(rows_f)
+    # Copy Summary button
     html = f'''
     <button id="copyBtn" style="padding:6px 12px;border-radius:6px;border:1px solid #ddd;cursor:pointer;">
         Copy Summary
@@ -97,6 +123,7 @@ if df.empty:
 else:
     st.dataframe(df, use_container_width=True)
 
+# Queue summary preview block
 st.divider()
 st.subheader("Summary Preview")
 st.markdown(md_summary)
