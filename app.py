@@ -3,7 +3,20 @@ import streamlit as st
 from datetime import datetime
 from infra.sheets_client import SheetsClient
 
-st.set_page_config(page_title="Vega Cockpit - Sheets Test", layout="wide")
+\1
+
+# === Hide default Streamlit pages nav (works across versions) ===
+st.markdown(
+    """
+    <style>
+    /* v1 selector */
+    [data-testid="stSidebarNav"] { display: none !important; }
+    /* fallback older/new builds */
+    .css-1d391kg.e1fqkh3o1, nav[aria-label="Sidebar"] ul { display: none !important; }
+    </style>
+    """, unsafe_allow_html=True
+)
+
 
 st.title("Vega Cockpit • Google Sheets Integration")
 

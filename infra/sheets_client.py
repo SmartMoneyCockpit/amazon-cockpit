@@ -1,24 +1,62 @@
+
 from __future__ import annotations
-import gspread, time
+import os, json
+import gspread
+import pandas as pd
+import streamlit as st
 from google.oauth2.service_account import Credentials
 from tenacity import retry, stop_after_attempt, wait_exponential
-import pandas as pd
+
+def _read_service_account_creds():
+    # Priority 1: st.secrets as JSON blob
+    try:
+        if "gcp_service_account_json" in st.secrets:
+            info = st.secrets["gcp_service_account_json"]
+            if isinstance(info, (str, bytes)):
+                info = json.loads(info)
+            return Credentials.from_service_account_info(info, scopes=[
+                "https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive"
+            ])
+    except Exception:
+        pass
+
+    # Priority 2: env var JSON content
+    env_json = os.getenv("GCP_SERVICE_ACCOUNT_JSON")
+    if env_json:
+        info = json.loads(env_json)
+        return Credentials.from_service_account_info(info, scopes=[
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ])
+
+    # Priority 3: file path from env or default
+    path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or "gcp_service_account.json"
+    if os.path.exists(path):
+        return Credentials.from_service_account_file(path, scopes=[
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ])
+
+    raise FileNotFoundError("No GCP credentials found. Provide st.secrets['gcp_service_account_json'] or env GCP_SERVICE_ACCOUNT_JSON or a GOOGLE_APPLICATION_CREDENTIALS path.")
+
+def _get_sheet_key():
+    # st.secrets first, then env
+    key = None
+    try:
+        key = st.secrets.get("sheets_key", None)
+    except Exception:
+        pass
+    key = key or os.getenv("SHEETS_KEY") or os.getenv("GOOGLE_SHEET_KEY")
+    if not key:
+        raise RuntimeError("Missing Sheets key. Set st.secrets['sheets_key'] or env SHEETS_KEY.")
+    return key
 
 class SheetsClient:
     def __init__(self):
-        # existing init assumed elsewhere; keeping as-is if present
-        try:
-            scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-            self.creds = Credentials.from_service_account_file("gcp_service_account.json", scopes=scope)
-            self.gc = gspread.authorize(self.creds)
-            self.sh = self.gc.open_by_key(self._get_key())
-        except Exception as e:
-            raise
-
-    def _get_key(self):
-        # naive; in your app this likely reads from env/secrets
-        import os
-        return os.environ.get("GOOGLE_SHEET_KEY", "")
+        creds = _read_service_account_creds()
+        self.gc = gspread.authorize(creds)
+        self.sh = self.gc.open_by_key(_get_sheet_key())
 
     @retry(stop=stop_after_attempt(4), wait=wait_exponential(multiplier=0.5, min=0.5, max=6))
     def read_table(self, sheet_name: str):
@@ -28,7 +66,6 @@ class SheetsClient:
 
     @retry(stop=stop_after_attempt(4), wait=wait_exponential(multiplier=0.5, min=0.5, max=6))
     def write_table(self, sheet_name: str, rows, clear=False):
-        ws = None
         try:
             ws = self.sh.worksheet(sheet_name)
         except Exception:
@@ -37,11 +74,7 @@ class SheetsClient:
         if clear:
             ws.clear()
 
-        if isinstance(rows, pd.DataFrame):
-            df = rows
-        else:
-            df = pd.DataFrame(rows)
-
+        df = pd.DataFrame(rows)
         if df.empty:
             return
 
