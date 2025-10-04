@@ -1,0 +1,16 @@
+# --- BEGIN Step 14.4: quiet finance validator hints ---
+from utils.finance_validation import missing_finance_columns  # type: ignore
+
+_missing_cols = []
+try:
+    _missing_cols = missing_finance_columns(rows)
+except Exception:
+    _missing_cols = []
+
+if _missing_cols:
+    st.caption(
+        "ℹ️ Finance schema hint: missing column(s) in 'Finances' sheet → "
+        + ", ".join(_missing_cols)
+        + ". The page will still render using available data."
+    )
+# --- END Step 14.4 ---

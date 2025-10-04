@@ -1,0 +1,15 @@
+# --- BEGIN Step 14.4: quiet finance validator hints ---
+from utils.finance_validation import missing_finance_columns  # type: ignore
+
+try:
+    _rows_preview = df.head(1).to_dict(orient="records")
+    _missing_cols = missing_finance_columns(_rows_preview)
+    if _missing_cols:
+        st.caption(
+            "ℹ️ Finance schema hint: missing column(s) for Monthly Export → "
+            + ", ".join(_missing_cols)
+            + ". Export will include only available columns."
+        )
+except Exception:
+    pass
+# --- END Step 14.4 ---
