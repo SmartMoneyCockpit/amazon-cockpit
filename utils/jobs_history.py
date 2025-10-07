@@ -8,7 +8,9 @@ def read_jobs(path: str=LOG_FILE)->List[Dict[str,Any]]:
     rows=[]; 
     with open(path,"r",encoding="utf-8") as f:
         for line in f:
-            line=line.strip(); if not line: continue
+            line = line.strip()
+            if not line:
+                continue
             try: rows.append(json.loads(line))
             except Exception: continue
     return rows
