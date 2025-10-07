@@ -1,0 +1,6 @@
+- name: alerts_flush
+  schedule: "*/60 * * * *"
+  task: "alerts:flush"
+- name: snapshot_heartbeat
+  schedule: "0 */6 * * *"
+  task: "snapshot:heartbeat"
