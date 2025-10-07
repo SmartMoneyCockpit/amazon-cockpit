@@ -1,5 +1,4 @@
-# Add this to Render as a Cron Job to build+send the Daily Digest (uses SendGrid if configured).
 jobs:
   - name: daily_digest_email
-    schedule: "45 19 * * *"  # 19:45 UTC ≈ 12:45 PM PT; adjust for your timezone
+    schedule: "45 19 * * *"
     command: "python -m workers.digest_scheduler"

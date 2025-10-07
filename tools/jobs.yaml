@@ -1,6 +1,4 @@
-# Declarative jobs manifest (example)
-# Add this to Render cron: `python -m workers.daily_snapshot`
 jobs:
   - name: daily_snapshot
-    schedule: "0 14 * * *"   # 14:00 UTC daily, change as needed
-    command: "python -m workers.daily_snapshot"
+    schedule: "@daily"
+    command: "python -m workers.cron_helpers snapshot"

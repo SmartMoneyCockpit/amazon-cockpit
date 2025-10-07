@@ -1,8 +1,4 @@
-# Example cron you can add on Render to run on the 1st at 14:00 UTC
 jobs:
   - name: monthly_finance_export
-    schedule: "0 14 1 * *"   # At 14:00 on day-of-month 1
-    command: "python - <<'PY'
-from pages._cron_helpers import run_monthly_export
-run_monthly_export()
-PY"
+    schedule: "0 14 1 * *"
+    command: "python -m workers.cron_helpers monthly"
