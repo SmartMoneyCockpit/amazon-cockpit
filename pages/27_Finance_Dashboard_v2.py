@@ -5,9 +5,9 @@ import streamlit as st
 from infra.sheets_client import SheetsClient
 from dataframes.finance import build_kpis
 from utils.anomaly import detect_anomalies
+from utils.anomaly_bridge import append_anomalies_to_digest
 
 st.set_page_config(page_title="Finance Dashboard v2", layout="wide")
-
 st.title("Finance Dashboard v2")
 
 _last_pull_utc = None
@@ -29,7 +29,6 @@ kpis, df = build_kpis(rows)
 st.subheader("Filters")
 today = dt.date.today()
 default_start = (today - dt.timedelta(days=30))
-
 c1, c2, c3 = st.columns([1.2, 1.2, 1])
 with c1:
     start = st.date_input("Start date", value=default_start)
@@ -58,6 +57,17 @@ with p1: st.markdown(_pill(flags.get("gmv", False), "GMV"), unsafe_allow_html=Tr
 with p2: st.markdown(_pill(flags.get("acos", False), "ACoS"), unsafe_allow_html=True)
 with p3: st.markdown(_pill(flags.get("tacos", False), "TACoS"), unsafe_allow_html=True)
 with p4: st.markdown(_pill(flags.get("refund_rate", False), "Refund"), unsafe_allow_html=True)
+
+# Queue anomalies to digest (only if at least one active flag)
+if any(flags.values()):
+    st.divider()
+    st.subheader("Actions")
+    if st.button("Queue Anomalies → Digest"):
+        try:
+            path = append_anomalies_to_digest(flags, z_thresh=2.0)
+            st.success(f"Queued anomalies to {path}. They will appear in the next Daily Digest.")
+        except Exception as e:
+            st.error(f"Failed to queue anomalies: {e}")
 
 gmv_sum = float(df_view.tail(30)["gmv"].sum()) if not df_view.empty and "gmv" in df_view.columns else 0.0
 acos_last = float(df_view["acos"].iloc[-1]) if not df_view.empty and "acos" in df_view.columns else 0.0
