@@ -109,3 +109,11 @@ except Exception:
     ]
     st.caption("Defaults loaded; connect Google Sheets or set secrets/env to override.")
     st.dataframe(pd.DataFrame(data), use_container_width=True)
+
+# ---- Developer Tools link (appended; keeps existing order) ----
+try:
+    with st.expander("Utilities", expanded=False):
+        if os.path.exists("pages/45_Developer_Tools.py"):
+            st.page_link("pages/45_Developer_Tools.py", label="Developer Tools")
+except Exception:
+    pass
