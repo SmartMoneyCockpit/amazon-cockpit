@@ -1,0 +1,7 @@
+{
+  "jobs": [
+    { "name": "alerts_flush", "command": "python workers/alerts_flush.py", "schedule_utc": "0 * * * *" },
+    { "name": "snapshot_heartbeat", "command": "python workers/snapshot_heartbeat.py", "schedule_utc": "0 */6 * * *" },
+    { "name": "digest_run_weekdays", "command": "python workers/digest_scheduler.py", "schedule_utc": "0 20 * * 1-5" }
+  ]
+}

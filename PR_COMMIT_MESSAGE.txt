@@ -1,0 +1,8 @@
+Vega Cockpit: cumulative bundle sync + Render handoff & jobs docs (steps 14–105)
+
+- Add DEPLOY_ON_RENDER.md (Render web service setup, envs, smoke)
+- Add render.yaml (minimal IaC for web)
+- Add RENDER_JOBS.md + ops/render_jobs_example.json (UTC schedules, verification, troubleshooting)
+- Add .github/PULL_REQUEST_TEMPLATE.md
+- Add GITIGNORE_RECOMMENDED.txt (runtime dirs, zips, secrets)
+- No code or menu changes in this PR — docs only

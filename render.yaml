@@ -1,5 +1,3 @@
-
-# Minimal Render IaC example (Web only). Add Jobs via dashboard.
 services:
   - type: web
     name: vega-cockpit
@@ -10,8 +8,3 @@ services:
     envVars:
       - key: TZ
         value: America/Mazatlan
-    # Optional persistent disk:
-    # disk:
-    #   name: vega-data
-    #   mountPath: /var/data
-    #   sizeGB: 5
