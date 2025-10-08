@@ -105,24 +105,27 @@ if st.button("Evaluate Now"):
         st.info("No alerts triggered.")
 
 
-# --- [82] Webhook link + retry counters ---
-import os, streamlit as _st
-from utils.jobs_history import read_jobs
-
-_st.subheader("Webhook Link")
-url = os.getenv("WEBHOOK_URL","").strip() or os.getenv("ALERTS_WEBHOOK_URL","").strip()
-if url:
-    _st.markdown(f"[Open webhook URL]({url})")
-else:
-    _st.info("No WEBHOOK_URL configured.")
-
-_st.subheader("Retry Counters (last 20)")
-rows = read_jobs()
-last20 = [r for r in rows if r.get("job")=="alerts_flush"][-20:]
-errors = sum(1 for r in last20 if r.get("status")=="error")
-no_change = sum(1 for r in last20 if r.get("status")=="no_change")
-sent = sum(1 for r in last20 if r.get("status")=="sent")
-c1,c2,c3 = _st.columns(3)
-c1.metric("Sent", sent)
-c2.metric("No change", no_change)
-c3.metric("Errors", errors)
+# --- [87] Silence alerts for N minutes (writes marker file) ---
+import os, json, time, streamlit as _st
+SILENCE_PATH = os.path.join("logs","alerts_silenced.json")
+_st.subheader("Silence Alerts")
+mins = _st.number_input("Minutes to silence", min_value=1, max_value=240, value=30, step=5)
+reason = _st.text_input("Reason (optional)", value="manual silence")
+if _st.button("Activate Silence", use_container_width=True):
+    os.makedirs("logs", exist_ok=True)
+    until = int(time.time()) + int(mins)*60
+    obj = {"silenced_until": until, "reason": reason}
+    try:
+        with open(SILENCE_PATH,"w",encoding="utf-8") as f: f.write(json.dumps(obj))
+        _st.success(f"Silenced until epoch {until}.")
+    except Exception as e:
+        _st.error(str(e))
+# Show current state
+try:
+    if os.path.exists(SILENCE_PATH):
+        stt = json.loads(open(SILENCE_PATH,"r",encoding="utf-8").read())
+        _st.info(f"Silence marker present: {stt}")
+    else:
+        _st.caption("No active silence marker.")
+except Exception as e:
+    _st.error(str(e))

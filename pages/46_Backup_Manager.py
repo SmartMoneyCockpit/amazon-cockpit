@@ -35,20 +35,32 @@ st.divider(); st.subheader("How to complete restore")
 st.markdown("1) Restore to staging. 2) Validate. 3) Create a live backup. 4) Replace live files.")
 
 
-# --- [84] SHA-1 Cache Verify ---
+# --- [89] Type-aware preview (JSON/CSV/MD) ---
 import streamlit as _st
-from utils.hash_cache import get_cached, recompute_and_store, verify
+import pandas as _pd
+import json as _json
 
-if files:
-    _st.subheader("SHA-1 Cache Verify")
-    pick = _st.selectbox("Pick file", options=[os.path.basename(f) for f in files], index=0, key="sha1_pick")
-    full = next((f for f in files if os.path.basename(f)==pick), None)
-    if full:
-        cached, ts = get_cached(full)
-        _st.write(f"Cached: {cached or '(none)'} {'(ts='+str(ts)+')' if ts else ''}")
-        if _st.button("Recompute & Update Cache", use_container_width=True):
-            res = recompute_and_store(full)
-            _st.write(res)
-        if _st.button("Verify against Cache", use_container_width=True):
-            res = verify(full)
-            _st.write(res)
+if 'full' in locals() and full and os.path.exists(full):
+    ext = os.path.splitext(full)[1].lower()
+    _st.subheader("Preview (type-aware)")
+    try:
+        if ext == ".json":
+            txt = open(full,"r",encoding="utf-8").read()[:4000]
+            try: obj = _json.loads(txt)
+            except Exception: obj = None
+            if obj: _st.json(obj)
+            else: _st.code(txt)
+        elif ext == ".csv":
+            try:
+                df = _pd.read_csv(full).head(50)
+                _st.dataframe(df, use_container_width=True)
+            except Exception as e:
+                _st.error(f"CSV preview error: {e}")
+        elif ext == ".md":
+            txt = open(full,"r",encoding="utf-8").read()[:4000]
+            _st.markdown(txt)
+        else:
+            _st.caption("Unknown type; showing raw head:")
+            _st.code(open(full,'r',encoding='utf-8',errors='ignore').read()[:1000])
+    except Exception as e:
+        _st.error(str(e))

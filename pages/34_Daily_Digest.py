@@ -49,10 +49,30 @@ st.dataframe(df, use_container_width=True) if not df.empty else st.info("No aler
 st.divider(); st.subheader("Summary Preview"); st.markdown(md)
 
 
-# --- [83] Attach artifacts? toggle ---
-import os, streamlit as _st
-if "digest_attach" not in _st.session_state:
-    _st.session_state["digest_attach"] = False
-_st.session_state["digest_attach"] = _st.toggle("Attach artifacts?", value=_st.session_state["digest_attach"])
-# Apply env override for this process
-os.environ["DIGEST_ATTACHMENTS"] = "1" if _st.session_state["digest_attach"] else "0"
+# --- [88] Backups Folder (search) ---
+import os, time, glob, streamlit as _st
+_st.subheader("Backups Folder (search)")
+q = _st.text_input("Filter by substring", value="digest_", help="e.g., 'digest_' or leave blank")
+paths = []
+try:
+    paths = [os.path.join("backups", f) for f in os.listdir("backups")]
+    paths = [p for p in paths if os.path.isfile(p)]
+except Exception:
+    paths = []
+if q:
+    low = q.lower()
+    paths = [p for p in paths if low in os.path.basename(p).lower()]
+paths.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+if not paths:
+    _st.info("No matching files in backups/.")
+else:
+    for p in paths[:200]:
+        name = os.path.basename(p)
+        ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getmtime(p)))
+        with _st.expander(f"{name} — {ts}", expanded=False):
+            _st.code(p, language="bash")
+            try:
+                with open(p, "rb") as fh:
+                    _st.download_button("Download", data=fh.read(), file_name=name, use_container_width=True)
+            except Exception as e:
+                _st.error(str(e))

@@ -37,27 +37,28 @@ raw_lines=read_jobs_raw(LOG_FILE); tail_n=st.slider("Show last N lines", 10, 500
 st.code("\n".join(raw_lines[-tail_n:])) if raw_lines else st.caption("No raw log lines yet.")
 
 
-# --- [81] Errors only + Export 'Errors today' ---
+# --- [86] Today-by-Job summary + export CSV ---
 import streamlit as _st
-import csv as _csv, io as _io
-from datetime import date as _date
-from utils.jobs_history import read_jobs, is_today, ERR_SET
+import pandas as _pd
+from datetime import date as _date, datetime as _dt
+from utils.jobs_history import read_jobs
 
-_st.subheader("Errors Today")
+_st.subheader("Today by Job")
 rows = read_jobs()
-errs_today = [r for r in rows if r.get("status") in ERR_SET and is_today(r.get("ts",""))]
-toggle_only_errs = _st.toggle("Show only errors today", value=False)
-if toggle_only_errs:
-    _st.dataframe(errs_today[-200:], use_container_width=True)
-if errs_today:
-    buf = _io.StringIO()
-    if errs_today:
-        # write CSV
-        keys = sorted({k for r in errs_today for k in r.keys()})
-        w = _csv.DictWriter(buf, fieldnames=keys)
-        w.writeheader()
-        for r in errs_today:
-            w.writerow(r)
-    _st.download_button("Download errors_today.csv", data=buf.getvalue().encode("utf-8"), file_name="errors_today.csv", use_container_width=True)
+today = _date.today()
+counts = {}
+for r in rows:
+    ts = (r.get("ts") or "")
+    try:
+        t = _dt.fromisoformat(ts.replace("Z",""))
+        if t.date() == today:
+            j = r.get("job","(unknown)")
+            counts[j] = counts.get(j, 0) + 1
+    except Exception:
+        pass
+if counts:
+    df = _pd.DataFrame({"job": list(counts.keys()), "runs": list(counts.values())}).sort_values("runs", ascending=False)
+    _st.bar_chart(df.set_index("job"))
+    _st.download_button("Download today_by_job.csv", data=df.to_csv(index=False).encode("utf-8"), file_name="today_by_job.csv", use_container_width=True)
 else:
-    _st.caption("No errors logged today.")
+    _st.caption("No jobs recorded today.")

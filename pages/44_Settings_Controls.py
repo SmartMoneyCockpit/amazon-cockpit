@@ -48,22 +48,23 @@ st.divider()
 st.caption("This page is menu-safe and does not change your sidebar. It reuses the existing Settings & Controls slot.")
 
 
-# --- [85] Email/Webhook ping tests ---
-import streamlit as _st
+# --- [90] Network Debug ---
+import streamlit as _st, socket, os
+_st.subheader("Network Debug")
+# Public IP (best-effort)
+ip = "(unavailable)"
 try:
-    from utils.ping import ping_sendgrid, ping_webhook
-except Exception:
-    ping_sendgrid = None; ping_webhook = None
-
-_st.subheader("Connectivity Pings")
-c1,c2 = _st.columns(2)
-if ping_sendgrid:
-    if c1.button("Ping SendGrid", use_container_width=True):
-        _st.write(ping_sendgrid())
-else:
-    c1.button("Ping SendGrid unavailable", disabled=True, use_container_width=True)
-if ping_webhook:
-    if c2.button("Ping Webhook URL", use_container_width=True):
-        _st.write(ping_webhook())
-else:
-    c2.button("Ping Webhook unavailable", disabled=True, use_container_width=True)
+    import requests
+    r = requests.get("https://api.ipify.org?format=json", timeout=6)
+    if 200 <= r.status_code < 300:
+        ip = r.json().get("ip","(unknown)")
+except Exception as e:
+    ip = f"(error: {str(e)[:60]})"
+_st.write(f"Public IP: **{ip}**")
+# DNS resolve test
+host = _st.text_input("DNS resolve test host", value="api.sendgrid.com")
+try:
+    resolved = socket.gethostbyname(host)
+    _st.write(f"{host} → {resolved}")
+except Exception as e:
+    _st.write(f"{host} → (resolve error: {str(e)[:60]})")
