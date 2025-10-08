@@ -20,47 +20,42 @@ else:
     st.download_button("Download CSV", data=df_sorted.to_csv(index=False).encode("utf-8"), file_name=f"file_inventory_{dt.date.today().isoformat()}.csv", mime="text/csv")
 
 
-# --- Snapshots & Backups (added) ---
+# [51–55] Size & SHA1 for Snapshots/Backups
 import os, time
-import streamlit as st
+import streamlit as _st
+from utils.hash_utils import file_sha1, file_size_bytes
 
-def _browse_dir(d: str, limit: int = 50):
+def _fmt_sz2(n):
     try:
-        files = [os.path.join(d, f) for f in os.listdir(d) if os.path.isfile(os.path.join(d, f))]
-        files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
-        return files[:limit]
+        for unit in ["B","KB","MB","GB"]:
+            if n < 1024.0:
+                return f"{n:3.1f} {unit}"
+            n /= 1024.0
+        return f"{n:.1f} TB"
     except Exception:
-        return []
+        return str(n)
 
-st.subheader("Snapshots & Backups")
-tab1, tab2 = st.tabs(["snapshots/", "backups/"])
-with tab1:
-    snaps = _browse_dir("snapshots")
-    if not snaps:
-        st.info("No snapshots found.")
-    else:
-        for p in snaps:
-            name = os.path.basename(p)
-            ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getmtime(p)))
-            with st.expander(f"{name} — {ts}", expanded=False):
-                st.code(p)
-                try:
-                    with open(p, "rb") as fh:
-                        st.download_button("Download", data=fh.read(), file_name=name, use_container_width=True)
-                except Exception as e:
-                    st.error(str(e))
-with tab2:
-    backs = _browse_dir("backups")
-    if not backs:
-        st.info("No backups found.")
-    else:
-        for p in backs:
-            name = os.path.basename(p)
-            ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getmtime(p)))
-            with st.expander(f"{name} — {ts}", expanded=False):
-                st.code(p)
-                try:
-                    with open(p, "rb") as fh:
-                        st.download_button("Download", data=fh.read(), file_name=name, use_container_width=True)
-                except Exception as e:
-                    st.error(str(e))
+def _render_listing(paths):
+    for p in paths or []:
+        name = os.path.basename(p)
+        size = file_size_bytes(p)
+        sha1 = file_sha1(p)
+        cols = _st.columns([3,1.2,2.8])
+        with cols[0]:
+            _st.write(f"**{name}**")
+            _st.code(p, language="bash")
+        with cols[1]:
+            _st.write(_fmt_sz2(size))
+        with cols[2]:
+            _st.code(sha1 or "(sha1 unavailable)")
+
+try:
+    if 'snaps' in locals() and snaps:
+        _st.caption("Snapshots: size and SHA1")
+        _render_listing(snaps)
+except Exception: pass
+try:
+    if 'backs' in locals() and backs:
+        _st.caption("Backups: size and SHA1")
+        _render_listing(backs)
+except Exception: pass

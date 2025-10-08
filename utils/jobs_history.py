@@ -1,5 +1,5 @@
 """
-Lightweight JSONL jobs history utilities.
+Lightweight JSONL jobs history utilities (fixed syntax).
 """
 from __future__ import annotations
 import os, json, datetime as dt

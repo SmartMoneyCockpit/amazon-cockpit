@@ -48,12 +48,18 @@ st.divider()
 st.caption("This page is menu-safe and does not change your sidebar. It reuses the existing Settings & Controls slot.")
 
 
-import streamlit as st
+# [51–55] Verify Cron Configs
+import streamlit as _st
 try:
-    from workers.snapshot_heartbeat import main as heartbeat_main
+    from utils.cron_validate import validate_all
 except Exception:
-    heartbeat_main=None
+    validate_all = None
 
-st.subheader("Ops Shortcuts")
-if st.button("Run Heartbeat Now", use_container_width=True) and heartbeat_main:
-    p=heartbeat_main(); st.success(f"Heartbeat snapshot saved: {p}")
+_st.subheader("Cron Configs")
+if validate_all is None:
+    _st.info("cron_validate not available.")
+else:
+    res = validate_all("tools")
+    ok = all(r.get("ok") for r in res) if res else True
+    _st.metric("tools/*.yaml", "OK" if ok else "CHECK")
+    _st.json(res)

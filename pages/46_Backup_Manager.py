@@ -35,41 +35,35 @@ st.divider(); st.subheader("How to complete restore")
 st.markdown("1) Restore to staging. 2) Validate. 3) Create a live backup. 4) Replace live files.")
 
 
-# --- Backups Browser (added) ---
-import os, time
-import streamlit as st
+# [51–55] Size & SHA1 + Copy Path
+import os, time as _time
+import streamlit as _st
+from utils.hash_utils import file_sha1, file_size_bytes
 
-BACKUPS_DIR = "backups"
-
-def list_backups(prefix: str = ""):
+def _fmt_sz(n):
     try:
-        files = [os.path.join(BACKUPS_DIR, f) for f in os.listdir(BACKUPS_DIR)]
-        files = [f for f in files if os.path.isfile(f)]
-        if prefix:
-            files = [f for f in files if os.path.basename(f).startswith(prefix)]
-        files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
-        return files
+        for unit in ["B","KB","MB","GB"]:
+            if n < 1024.0:
+                return f"{n:3.1f} {unit}"
+            n /= 1024.0
+        return f"{n:.1f} TB"
     except Exception:
-        return []
+        return str(n)
 
-st.subheader("Backups Browser")
-col1, col2 = st.columns([2,1])
-with col1:
-    pref = st.text_input("Filter by prefix", value="digest_", help="e.g., 'digest_' to list daily digest artifacts")
-with col2:
-    st.caption("Most recent first")
-files = list_backups(pref.strip())
-if not files:
-    st.info("No backups found yet.")
-else:
-    for f in files[:50]:
-        name = os.path.basename(f)
-        ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getmtime(f)))
-        with st.expander(f"{name} — {ts}", expanded=False):
-            st.write(f"`{f}`")
-            try:
-                with open(f, "rb") as fh:
-                    data = fh.read()
-                st.download_button("Download", data=data, file_name=name, use_container_width=True)
-            except Exception as e:
-                st.error(f"Cannot open file: {e}")
+try:
+    if files:
+        _st.caption("Showing size and SHA1 for each file:")
+        for f in files[:50]:
+            name = os.path.basename(f)
+            size = file_size_bytes(f)
+            sha1 = file_sha1(f)
+            cols = _st.columns([3,1.2,2.8])
+            with cols[0]:
+                _st.write(f"**{name}**")
+                _st.code(f, language="bash")
+            with cols[1]:
+                _st.write(_fmt_sz(size))
+            with cols[2]:
+                _st.code(sha1 or "(sha1 unavailable)")
+except Exception:
+    pass
