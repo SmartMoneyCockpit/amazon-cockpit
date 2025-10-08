@@ -49,17 +49,23 @@ st.dataframe(df, use_container_width=True) if not df.empty else st.info("No aler
 st.divider(); st.subheader("Summary Preview"); st.markdown(md)
 
 
-# --- [61–65] Email latest Digest now ---
-import streamlit as _st
+# --- [66–70] Digest artifacts folder view ---
+import os, time, glob, streamlit as _st
+_st.subheader("Digest Artifacts")
 try:
-    from utils.digest_runner import send_latest_digest as _send_latest_digest
+    files = sorted(glob.glob(os.path.join("backups","digest_*.*")), key=lambda p: os.path.getmtime(p), reverse=True)
+    if not files:
+        _st.info("No digest artifacts yet.")
+    else:
+        for p in files[:200]:
+            name = os.path.basename(p)
+            ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getmtime(p)))
+            with _st.expander(f"{name} — {ts}", expanded=False):
+                _st.code(p, language="bash")
+                try:
+                    with open(p, "rb") as fh:
+                        _st.download_button("Download", data=fh.read(), file_name=name, use_container_width=True)
+                except Exception as e:
+                    _st.error(str(e))
 except Exception:
-    _send_latest_digest = None
-
-_st.subheader("Email Latest Digest")
-if _send_latest_digest is None:
-    _st.info("Digest sender not available.")
-else:
-    if _st.button("Email latest digest now", type="primary", use_container_width=True):
-        res = _send_latest_digest("Vega Daily Digest (Latest)")
-        _st.write(res)
+    _st.info("No artifacts or cannot read backups/.")

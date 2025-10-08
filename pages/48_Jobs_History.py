@@ -37,23 +37,51 @@ raw_lines=read_jobs_raw(LOG_FILE); tail_n=st.slider("Show last N lines", 10, 500
 st.code("\n".join(raw_lines[-tail_n:])) if raw_lines else st.caption("No raw log lines yet.")
 
 
-# --- [61–65] Export filtered results ---
-import json as _json
-try:
-    from utils.exporters import to_csv as _to_csv
-except Exception:
-    _to_csv = None
+# --- [66–70] Preset filter chips + Clear filters ---
+import streamlit as _st
+from utils.jobs_history import read_jobs, filter_jobs
+from datetime import date as _date
 
-try:
-    _rows = filtered if isinstance(filtered, list) else []
-    if _rows:
-        csv_bytes = _to_csv(_rows) if _to_csv else None
-        js = _json.dumps(_rows, ensure_ascii=False, indent=2).encode("utf-8")
-        c1, c2 = _st.columns(2)
-        if csv_bytes:
-            c1.download_button("Download filtered CSV", data=csv_bytes, file_name="jobs_filtered.csv", use_container_width=True)
-        else:
-            c1.button("CSV exporter missing", disabled=True, use_container_width=True)
-        c2.download_button("Download filtered JSON", data=js, file_name="jobs_filtered.json", use_container_width=True)
-except Exception:
-    pass
+_st.subheader("Quick Presets")
+rows = read_jobs()
+preset_map = {
+    "Digest (run/send_latest)": ["digest_run", "digest_send_latest"],
+    "Alerts (flush)": ["alerts_flush"],
+    "Heartbeat": ["snapshot_heartbeat"],
+}
+preset = _st.radio("Presets", options=list(preset_map.keys()) + ["(Custom)"], horizontal=True, index=3)
+
+# Custom filter controls
+c1,c2,c3,c4 = _st.columns([1.4,1.4,1.2,2.0])
+jobs_all = sorted({r.get("job","") for r in rows if r.get("job")})
+status_all = sorted({r.get("status","") for r in rows if r.get("status")})
+_sel_jobs = c1.multiselect("Jobs", jobs_all, default=[])
+_sel_status = c2.multiselect("Status", status_all, default=[])
+_dfrom = c3.date_input("From", value=_date.today())
+_dto = c4.date_input("To", value=_date.today())
+_q = _st.text_input("Quick search", placeholder="text in any field...")
+
+# Apply presets if chosen
+if preset != "(Custom)":
+    preset_jobs = preset_map[preset]
+    _sel_jobs = preset_jobs
+    _sel_status = []  # leave statuses open
+    _q = ""
+
+# Clear filters
+if _st.button("Clear filters"):
+    _sel_jobs = []
+    _sel_status = []
+    _q = ""
+
+filtered = filter_jobs(
+    rows,
+    job_names=_sel_jobs or None,
+    statuses=_sel_status or None,
+    date_from=_dfrom,
+    date_to=_dto,
+    text=_q,
+)
+_st.write(f"**Results:** {len(filtered)}")
+if filtered:
+    _st.dataframe(filtered[-200:])

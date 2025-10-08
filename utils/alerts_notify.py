@@ -139,3 +139,15 @@ def notify_if_new(subject_prefix: str = "Alerts Update") -> dict:
     _save_state(state)
     results["status"] = "sent"
     return results
+
+
+# --- [66–70] Resend latest alerts (bypass fingerprint) ---
+def resend_latest(subject_prefix: str = "Alerts Update (Re-send)") -> dict:
+    """Rebuild current payload and send email/webhook without touching fingerprint state."""
+    payload = _summarize()
+    html = _html_from_payload(payload)
+    results = {}
+    results["email"] = _send_email(f"{subject_prefix}", html)
+    results["webhook"] = _send_webhook({"type":"alerts_update_resend", "payload": payload})
+    results["status"] = "sent"
+    return results

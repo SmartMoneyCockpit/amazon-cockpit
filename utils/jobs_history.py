@@ -1,5 +1,5 @@
 """
-Lightweight JSONL jobs history utilities (fixed for filters & exports).
+Lightweight JSONL jobs history utilities (stable for presets).
 """
 from __future__ import annotations
 import os, json, datetime as dt

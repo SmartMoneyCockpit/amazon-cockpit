@@ -35,25 +35,30 @@ st.divider(); st.subheader("How to complete restore")
 st.markdown("1) Restore to staging. 2) Validate. 3) Create a live backup. 4) Replace live files.")
 
 
-# --- [61–65] MIME type + Move to trash ---
-import mimetypes as _mimes
+# --- [66–70] Bulk Move to trash (.trash/) ---
 import streamlit as _st
-
 _TRASH = os.path.join(BACKUPS_DIR, ".trash")
 os.makedirs(_TRASH, exist_ok=True)
 
 if files:
-    _st.subheader("MIME & Trash")
-    pick = _st.selectbox("Pick file", options=[os.path.basename(f) for f in files], index=0)
-    full = next((f for f in files if os.path.basename(f)==pick), None)
-    if full:
-        mime, _ = _mimes.guess_type(full)
-        _st.write(f"**MIME:** {mime or 'unknown'}")
-        sure = _st.checkbox("Confirm move to trash (.trash/)")
-        if _st.button("Move to trash", disabled=not sure, use_container_width=True):
+    _st.subheader("Bulk trash")
+    options = [os.path.basename(f) for f in files]
+    picks = _st.multiselect("Select files to move", options=options, default=[])
+    confirm = _st.checkbox("Confirm move selected to .trash/")
+    if _st.button("Move selected to trash", disabled=not (picks and confirm), use_container_width=True):
+        moved = []
+        errors = []
+        for name in picks:
+            full = next((f for f in files if os.path.basename(f)==name), None)
+            if not full: 
+                continue
             try:
                 dest = os.path.join(_TRASH, os.path.basename(full))
                 os.replace(full, dest)
-                _st.success(f"Moved to {dest}")
+                moved.append(name)
             except Exception as e:
-                _st.error(str(e))
+                errors.append(f"{name}: {e}")
+        if moved:
+            _st.success(f"Moved: {', '.join(moved)}")
+        if errors:
+            _st.error("\n".join(errors))

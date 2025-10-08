@@ -48,25 +48,16 @@ st.divider()
 st.caption("This page is menu-safe and does not change your sidebar. It reuses the existing Settings & Controls slot.")
 
 
-# --- [61–65] Latest Files Quick Links ---
-import os, glob, streamlit as _st
-_st.subheader("Latest Files")
-def _latest(globpat):
-    files = sorted(glob.glob(globpat), key=lambda p: os.path.getmtime(p), reverse=True)
-    return files[0] if files else None
+# --- [66–70] System Info (python/env/dirs) ---
+import streamlit as _st
+try:
+    from utils.sentinel import run_all
+except Exception:
+    run_all = None
 
-latest_snap = _latest(os.path.join("snapshots","snapshot_*.*"))
-latest_backup = _latest(os.path.join("backups","*.*"))
-
-c1, c2 = _st.columns(2)
-if latest_snap:
-    with open(latest_snap, "rb") as fh:
-        c1.download_button("Download latest snapshot", data=fh.read(), file_name=os.path.basename(latest_snap), use_container_width=True)
+_st.subheader("System Info")
+if run_all is None:
+    _st.info("Sentinel not available.")
 else:
-    c1.button("No snapshots yet", disabled=True, use_container_width=True)
-
-if latest_backup:
-    with open(latest_backup, "rb") as fh:
-        c2.download_button("Download latest backup", data=fh.read(), file_name=os.path.basename(latest_backup), use_container_width=True)
-else:
-    c2.button("No backups yet", disabled=True, use_container_width=True)
+    info = run_all(custom_env=["SENDGRID_API_KEY","DIGEST_EMAIL_FROM","DIGEST_EMAIL_TO","WEBHOOK_URL"])
+    _st.json(info)
