@@ -1,5 +1,5 @@
 """
-Lightweight JSONL jobs history utilities (stable).
+Lightweight JSONL jobs history utilities (fixed for filters & exports).
 """
 from __future__ import annotations
 import os, json, datetime as dt
@@ -14,7 +14,7 @@ def read_jobs(path: str = LOG_FILE) -> List[Dict[str, Any]]:
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
-            if not line: 
+            if not line:
                 continue
             try:
                 rows.append(json.loads(line))

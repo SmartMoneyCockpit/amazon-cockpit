@@ -37,30 +37,23 @@ raw_lines=read_jobs_raw(LOG_FILE); tail_n=st.slider("Show last N lines", 10, 500
 st.code("\n".join(raw_lines[-tail_n:])) if raw_lines else st.caption("No raw log lines yet.")
 
 
-# --- Filters & Search (added 57) ---
-import streamlit as _st
-from datetime import date as _date
-from utils.jobs_history import read_jobs, filter_jobs
+# --- [61–65] Export filtered results ---
+import json as _json
+try:
+    from utils.exporters import to_csv as _to_csv
+except Exception:
+    _to_csv = None
 
-_st.subheader("Filters")
-rows = read_jobs()
-jobs = sorted({r.get("job","") for r in rows if r.get("job")})
-statuses = sorted({r.get("status","") for r in rows if r.get("status")})
-c1,c2,c3,c4 = _st.columns([1.4,1.4,1.2,2.0])
-sel_jobs = c1.multiselect("Jobs", jobs, default=jobs[:3] if jobs else [])
-sel_status = c2.multiselect("Status", statuses, default=[])
-d_from = c3.date_input("From", value=_date.today())
-d_to = c4.date_input("To", value=_date.today())
-q = _st.text_input("Quick search", placeholder="text in any field...")
-
-filtered = filter_jobs(
-    rows,
-    job_names=sel_jobs or None,
-    statuses=sel_status or None,
-    date_from=d_from,
-    date_to=d_to,
-    text=q,
-)
-_st.write(f"**Results:** {len(filtered)}")
-if filtered:
-    _st.dataframe(filtered[-200:])
+try:
+    _rows = filtered if isinstance(filtered, list) else []
+    if _rows:
+        csv_bytes = _to_csv(_rows) if _to_csv else None
+        js = _json.dumps(_rows, ensure_ascii=False, indent=2).encode("utf-8")
+        c1, c2 = _st.columns(2)
+        if csv_bytes:
+            c1.download_button("Download filtered CSV", data=csv_bytes, file_name="jobs_filtered.csv", use_container_width=True)
+        else:
+            c1.button("CSV exporter missing", disabled=True, use_container_width=True)
+        c2.download_button("Download filtered JSON", data=js, file_name="jobs_filtered.json", use_container_width=True)
+except Exception:
+    pass

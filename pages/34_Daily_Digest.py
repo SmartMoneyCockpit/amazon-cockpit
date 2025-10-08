@@ -49,30 +49,17 @@ st.dataframe(df, use_container_width=True) if not df.empty else st.info("No aler
 st.divider(); st.subheader("Summary Preview"); st.markdown(md)
 
 
-# --- Open Latest Digest (added 56) ---
-import os, glob, streamlit as _st
-
-_st.subheader("Open Latest Digest")
+# --- [61–65] Email latest Digest now ---
+import streamlit as _st
 try:
-    files = sorted(glob.glob(os.path.join("backups","digest_*.*")), key=lambda p: os.path.getmtime(p), reverse=True)
-    latest_csv = next((p for p in files if p.endswith(".csv")), None)
-    latest_md  = next((p for p in files if p.endswith(".md")), None)
-    latest_txt = next((p for p in files if p.endswith(".txt")), None)
-    cols = _st.columns(3)
-    if latest_csv:
-        with open(latest_csv, "rb") as fh:
-            cols[0].download_button("Download latest CSV", data=fh.read(), file_name=os.path.basename(latest_csv), use_container_width=True)
-    else:
-        cols[0].button("No CSV yet", disabled=True, use_container_width=True)
-    if latest_md:
-        with open(latest_md, "rb") as fh:
-            cols[1].download_button("Download latest MD", data=fh.read(), file_name=os.path.basename(latest_md), use_container_width=True)
-    else:
-        cols[1].button("No MD yet", disabled=True, use_container_width=True)
-    if latest_txt:
-        with open(latest_txt, "rb") as fh:
-            cols[2].download_button("Download latest TXT", data=fh.read(), file_name=os.path.basename(latest_txt), use_container_width=True)
-    else:
-        cols[2].button("No TXT yet", disabled=True, use_container_width=True)
+    from utils.digest_runner import send_latest_digest as _send_latest_digest
 except Exception:
-    _st.info("No digest artifacts found yet.")
+    _send_latest_digest = None
+
+_st.subheader("Email Latest Digest")
+if _send_latest_digest is None:
+    _st.info("Digest sender not available.")
+else:
+    if _st.button("Email latest digest now", type="primary", use_container_width=True):
+        res = _send_latest_digest("Vega Daily Digest (Latest)")
+        _st.write(res)

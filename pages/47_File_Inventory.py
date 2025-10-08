@@ -20,42 +20,29 @@ else:
     st.download_button("Download CSV", data=df_sorted.to_csv(index=False).encode("utf-8"), file_name=f"file_inventory_{dt.date.today().isoformat()}.csv", mime="text/csv")
 
 
-# [51–55] Size & SHA1 for Snapshots/Backups
-import os, time
-import streamlit as _st
-from utils.hash_utils import file_sha1, file_size_bytes
-
-def _fmt_sz2(n):
-    try:
-        for unit in ["B","KB","MB","GB"]:
-            if n < 1024.0:
-                return f"{n:3.1f} {unit}"
-            n /= 1024.0
-        return f"{n:.1f} TB"
-    except Exception:
-        return str(n)
-
-def _render_listing(paths):
-    for p in paths or []:
-        name = os.path.basename(p)
-        size = file_size_bytes(p)
-        sha1 = file_sha1(p)
-        cols = _st.columns([3,1.2,2.8])
-        with cols[0]:
-            _st.write(f"**{name}**")
-            _st.code(p, language="bash")
-        with cols[1]:
-            _st.write(_fmt_sz2(size))
-        with cols[2]:
-            _st.code(sha1 or "(sha1 unavailable)")
-
+# --- [61–65] Open Latest Snapshot ---
+import os, glob, streamlit as _st
+_st.subheader("Open Latest Snapshot")
 try:
-    if 'snaps' in locals() and snaps:
-        _st.caption("Snapshots: size and SHA1")
-        _render_listing(snaps)
-except Exception: pass
-try:
-    if 'backs' in locals() and backs:
-        _st.caption("Backups: size and SHA1")
-        _render_listing(backs)
-except Exception: pass
+    files = sorted(glob.glob(os.path.join("snapshots","snapshot_*.*")), key=lambda p: os.path.getmtime(p), reverse=True)
+    latest_csv = next((p for p in files if p.endswith(".csv")), None)
+    latest_md  = next((p for p in files if p.endswith(".md")), None)
+    latest_txt = next((p for p in files if p.endswith(".txt")), None)
+    cols = _st.columns(3)
+    if latest_csv:
+        with open(latest_csv, "rb") as fh:
+            cols[0].download_button("Download latest CSV", data=fh.read(), file_name=os.path.basename(latest_csv), use_container_width=True)
+    else:
+        cols[0].button("No CSV yet", disabled=True, use_container_width=True)
+    if latest_md:
+        with open(latest_md, "rb") as fh:
+            cols[1].download_button("Download latest MD", data=fh.read(), file_name=os.path.basename(latest_md), use_container_width=True)
+    else:
+        cols[1].button("No MD yet", disabled=True, use_container_width=True)
+    if latest_txt:
+        with open(latest_txt, "rb") as fh:
+            cols[2].download_button("Download latest TXT", data=fh.read(), file_name=os.path.basename(latest_txt), use_container_width=True)
+    else:
+        cols[2].button("No TXT yet", disabled=True, use_container_width=True)
+except Exception:
+    _st.info("No snapshot artifacts found yet.")
