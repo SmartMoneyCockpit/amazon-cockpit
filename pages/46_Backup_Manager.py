@@ -35,30 +35,12 @@ st.divider(); st.subheader("How to complete restore")
 st.markdown("1) Restore to staging. 2) Validate. 3) Create a live backup. 4) Replace live files.")
 
 
-# --- [66–70] Bulk Move to trash (.trash/) ---
+# --- [74] Fast substring search ---
 import streamlit as _st
-_TRASH = os.path.join(BACKUPS_DIR, ".trash")
-os.makedirs(_TRASH, exist_ok=True)
-
-if files:
-    _st.subheader("Bulk trash")
-    options = [os.path.basename(f) for f in files]
-    picks = _st.multiselect("Select files to move", options=options, default=[])
-    confirm = _st.checkbox("Confirm move selected to .trash/")
-    if _st.button("Move selected to trash", disabled=not (picks and confirm), use_container_width=True):
-        moved = []
-        errors = []
-        for name in picks:
-            full = next((f for f in files if os.path.basename(f)==name), None)
-            if not full: 
-                continue
-            try:
-                dest = os.path.join(_TRASH, os.path.basename(full))
-                os.replace(full, dest)
-                moved.append(name)
-            except Exception as e:
-                errors.append(f"{name}: {e}")
-        if moved:
-            _st.success(f"Moved: {', '.join(moved)}")
-        if errors:
-            _st.error("\n".join(errors))
+if 'files' in globals() and isinstance(files, list):
+    _st.subheader("Quick Search")
+    q = _st.text_input("Substring filter (case-insensitive)", value="")
+    if q:
+        low = q.lower()
+        files = [f for f in files if low in f.lower()]
+        _st.caption(f"Filtered to {len(files)} file(s).")

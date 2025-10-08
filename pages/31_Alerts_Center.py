@@ -105,25 +105,28 @@ if st.button("Evaluate Now"):
         st.info("No alerts triggered.")
 
 
-# --- Status Tiles (added 58) ---
-import os, json, streamlit as _st
+# --- [72] Last email/webhook responses ---
+import streamlit as _st
+import json as _json
 from utils.jobs_history import read_jobs
 
-STATE_PATH = os.getenv("ALERTS_NOTIFY_STATE", "/tmp/alerts_notify_state.json")
-
-_st.subheader("Status Tiles")
+_st.subheader("Last Email/Webhook Responses")
 rows = read_jobs()
-cand = [r for r in rows if r.get("job")=="alerts_flush"]
-last = cand[-1] if cand else {}
-last_fp = ""
-try:
-    if os.path.exists(STATE_PATH):
-        st_data = json.loads(open(STATE_PATH,"r",encoding="utf-8").read())
-        last_fp = (st_data.get("last_fp") or "")[:12]
-except Exception:
-    pass
-
-c1,c2,c3 = _st.columns(3)
-c1.metric("Last Send Status", last.get("status","—"))
-c2.metric("Last Send Time", (last.get("ts","—").replace("T"," ").replace("Z","")) if last.get("ts") else "—")
-c3.metric("Fingerprint", last_fp or "—")
+items = [r for r in rows if r.get("job")=="alerts_flush"]
+if not items:
+    _st.info("No alerts history yet.")
+else:
+    # show last 10
+    subset = items[-10:]
+    table = []
+    for r in subset:
+        det = r.get("details") or {}
+        email = det.get("email") if isinstance(det, dict) else {}
+        webhook = det.get("webhook") if isinstance(det, dict) else {}
+        table.append({
+            "ts": r.get("ts",""),
+            "status": r.get("status",""),
+            "email": str(email)[:140],
+            "webhook": str(webhook)[:140],
+        })
+    _st.dataframe(table, use_container_width=True)

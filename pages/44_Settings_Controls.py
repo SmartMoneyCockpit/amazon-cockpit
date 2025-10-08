@@ -48,16 +48,20 @@ st.divider()
 st.caption("This page is menu-safe and does not change your sidebar. It reuses the existing Settings & Controls slot.")
 
 
-# --- [66–70] System Info (python/env/dirs) ---
-import streamlit as _st
-try:
-    from utils.sentinel import run_all
-except Exception:
-    run_all = None
+# --- [75] Touch test (write perms) ---
+import os, time, streamlit as _st
+_st.subheader("Write Permission Test")
+def _touch(dirpath: str) -> str:
+    try:
+        os.makedirs(dirpath, exist_ok=True)
+        fn = os.path.join(dirpath, f".touch_{int(time.time())}.tmp")
+        with open(fn, "w", encoding="utf-8") as f:
+            f.write("ok")
+        os.remove(fn)
+        return "OK"
+    except Exception as e:
+        return f"ERROR: {e}"
 
-_st.subheader("System Info")
-if run_all is None:
-    _st.info("Sentinel not available.")
-else:
-    info = run_all(custom_env=["SENDGRID_API_KEY","DIGEST_EMAIL_FROM","DIGEST_EMAIL_TO","WEBHOOK_URL"])
-    _st.json(info)
+c1,c2 = _st.columns(2)
+c1.metric("snapshots/ write", _touch("snapshots"))
+c2.metric("backups/ write", _touch("backups"))
