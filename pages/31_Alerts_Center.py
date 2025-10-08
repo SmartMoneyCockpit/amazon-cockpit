@@ -105,28 +105,37 @@ if st.button("Evaluate Now"):
         st.info("No alerts triggered.")
 
 
-# --- [72] Last email/webhook responses ---
-import streamlit as _st
-import json as _json
-from utils.jobs_history import read_jobs
+# --- [77] State file download + Reset fingerprint ---
+import os, json, streamlit as _st
+STATE_PATH = os.getenv("ALERTS_NOTIFY_STATE", "/tmp/alerts_notify_state.json")
 
-_st.subheader("Last Email/Webhook Responses")
-rows = read_jobs()
-items = [r for r in rows if r.get("job")=="alerts_flush"]
-if not items:
-    _st.info("No alerts history yet.")
+_st.subheader("State File")
+_st.code(STATE_PATH, language="bash")
+if os.path.exists(STATE_PATH):
+    try:
+        with open(STATE_PATH, "rb") as fh:
+            data = fh.read()
+        _st.download_button("Download state file", data=data, file_name=os.path.basename(STATE_PATH), use_container_width=True)
+    except Exception as e:
+        _st.error(str(e))
 else:
-    # show last 10
-    subset = items[-10:]
-    table = []
-    for r in subset:
-        det = r.get("details") or {}
-        email = det.get("email") if isinstance(det, dict) else {}
-        webhook = det.get("webhook") if isinstance(det, dict) else {}
-        table.append({
-            "ts": r.get("ts",""),
-            "status": r.get("status",""),
-            "email": str(email)[:140],
-            "webhook": str(webhook)[:140],
-        })
-    _st.dataframe(table, use_container_width=True)
+    _st.info("No state file yet.")
+
+_st.subheader("Reset Fingerprint (guarded)")
+confirm = _st.checkbox("I understand this forces next alerts email to send")
+if _st.button("Reset fingerprint", disabled=not confirm, use_container_width=True):
+    try:
+        if os.path.exists(STATE_PATH):
+            obj = {}
+            try:
+                obj = json.loads(open(STATE_PATH,"r",encoding="utf-8").read())
+            except Exception:
+                obj = {}
+            obj["last_fp"] = ""
+            with open(STATE_PATH,"w",encoding="utf-8") as f:
+                f.write(json.dumps(obj))
+            _st.success("Fingerprint reset (last_fp='').")
+        else:
+            _st.info("No state file to reset; will recompute next run anyway.")
+    except Exception as e:
+        _st.error(str(e))

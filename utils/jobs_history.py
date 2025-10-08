@@ -1,5 +1,5 @@
 """
-Lightweight JSONL jobs history utilities (stable for status bar + copy lines).
+Lightweight JSONL jobs history utilities (stable for hourly sparkline).
 """
 from __future__ import annotations
 import os, json, datetime as dt
@@ -49,13 +49,6 @@ def filter_jobs(rows: List[Dict[str, Any]], job_names=None, statuses=None, date_
                 continue
         out.append(r)
     return out
-
-def tail_raw(n: int = 20, path: str = LOG_FILE) -> List[str]:
-    if not os.path.exists(path):
-        return []
-    with open(path, "r", encoding="utf-8") as f:
-        lines = f.readlines()
-    return [l.rstrip("\n") for l in lines[-n:]]
 
 def write_job(job: str, status: str, details: dict=None, path: str=LOG_FILE) -> bool:
     try:

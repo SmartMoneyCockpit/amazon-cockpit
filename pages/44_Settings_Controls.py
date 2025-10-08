@@ -48,20 +48,24 @@ st.divider()
 st.caption("This page is menu-safe and does not change your sidebar. It reuses the existing Settings & Controls slot.")
 
 
-# --- [75] Touch test (write perms) ---
-import os, time, streamlit as _st
-_st.subheader("Write Permission Test")
-def _touch(dirpath: str) -> str:
-    try:
-        os.makedirs(dirpath, exist_ok=True)
-        fn = os.path.join(dirpath, f".touch_{int(time.time())}.tmp")
-        with open(fn, "w", encoding="utf-8") as f:
-            f.write("ok")
-        os.remove(fn)
-        return "OK"
-    except Exception as e:
-        return f"ERROR: {e}"
+# --- [80] Env Viewer (masked) ---
+import os, streamlit as _st
 
-c1,c2 = _st.columns(2)
-c1.metric("snapshots/ write", _touch("snapshots"))
-c2.metric("backups/ write", _touch("backups"))
+_st.subheader("Env Viewer (masked)")
+keys = ["SENDGRID_API_KEY","DIGEST_EMAIL_FROM","DIGEST_EMAIL_TO","ALERTS_EMAIL_FROM","ALERTS_EMAIL_TO","WEBHOOK_URL","SHEETS_KEY"]
+show = _st.toggle("Show secrets", value=False)
+
+rows = []
+for k in keys:
+    v = os.getenv(k, "")
+    if v:
+        val = v if show else (v[:3] + "****" + v[-3:] if len(v)>=7 else "****")
+    else:
+        val = "(unset)"
+    rows.append({"key": k, "value": val})
+try:
+    import pandas as _pd
+    _st.dataframe(_pd.DataFrame(rows))
+except Exception:
+    for r in rows:
+        _st.write(f"{r['key']}: {r['value']}")

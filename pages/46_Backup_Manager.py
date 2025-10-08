@@ -35,12 +35,15 @@ st.divider(); st.subheader("How to complete restore")
 st.markdown("1) Restore to staging. 2) Validate. 3) Create a live backup. 4) Replace live files.")
 
 
-# --- [74] Fast substring search ---
+# --- [79] Restore to staging (dry-run) ---
 import streamlit as _st
-if 'files' in globals() and isinstance(files, list):
-    _st.subheader("Quick Search")
-    q = _st.text_input("Substring filter (case-insensitive)", value="")
-    if q:
-        low = q.lower()
-        files = [f for f in files if low in f.lower()]
-        _st.caption(f"Filtered to {len(files)} file(s).")
+if files:
+    _st.subheader("Restore to Staging (dry‑run)")
+    pick = _st.selectbox("Pick file", options=[os.path.basename(f) for f in files], index=0, key="dryrun_pick")
+    full = next((f for f in files if os.path.basename(f)==pick), None)
+    if full:
+        # Simple checks
+        exists = os.path.exists(full)
+        size = os.path.getsize(full) if exists else 0
+        _st.write(f"Exists: {exists} | Size: {size} bytes")
+        _st.caption("No changes applied. This validates readability only.")

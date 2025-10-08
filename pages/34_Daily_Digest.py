@@ -49,17 +49,43 @@ st.dataframe(df, use_container_width=True) if not df.empty else st.info("No aler
 st.divider(); st.subheader("Summary Preview"); st.markdown(md)
 
 
-# --- [73] Rebuild + email (run_digest) ---
+# --- [78] Subject prefix + Latest send status + custom send/rebuild ---
 import streamlit as _st
+from utils.jobs_history import read_jobs
 try:
-    from utils.digest_runner import run_digest as _run_digest
+    from utils.digest_runner import send_latest_digest as _send_latest, run_digest as _run_digest
 except Exception:
+    _send_latest = None
     _run_digest = None
 
-_st.subheader("Rebuild + Email")
-if _run_digest is None:
-    _st.info("Digest runner not available.")
-else:
-    if _st.button("Rebuild + Email now", type="primary", use_container_width=True):
-        res = _run_digest("Vega Daily Digest (Rebuild)")
+_st.subheader("Subject Prefix")
+if "digest_subject_prefix" not in _st.session_state:
+    _st.session_state["digest_subject_prefix"] = "Vega Daily Digest"
+prefix = _st.text_input("Email subject prefix", value=_st.session_state["digest_subject_prefix"])
+_st.session_state["digest_subject_prefix"] = prefix
+
+_st.subheader("Latest Send Status")
+try:
+    rows = read_jobs()
+    cand = [r for r in rows if r.get("job") in ("digest_run","digest_send_latest")]
+    last = cand[-1] if cand else {}
+    stts = last.get("status","—")
+    ts = (last.get("ts","") or "").replace("T"," ").replace("Z","")
+    _st.write(f"**Last:** {ts} | **Status:** {stts}")
+except Exception:
+    _st.info("No digest history yet.")
+
+col1, col2 = _st.columns(2)
+if _send_latest:
+    if col1.button("Send Latest (use subject above)", use_container_width=True):
+        res = _send_latest(prefix)
         _st.write(res)
+else:
+    col1.button("Send Latest unavailable", disabled=True, use_container_width=True)
+
+if _run_digest:
+    if col2.button("Rebuild + Email (use subject above)", type="primary", use_container_width=True):
+        res = _run_digest(prefix + " (Rebuild)")
+        _st.write(res)
+else:
+    col2.button("Rebuild unavailable", disabled=True, use_container_width=True)

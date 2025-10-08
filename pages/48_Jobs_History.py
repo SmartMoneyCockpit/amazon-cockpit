@@ -37,34 +37,43 @@ raw_lines=read_jobs_raw(LOG_FILE); tail_n=st.slider("Show last N lines", 10, 500
 st.code("\n".join(raw_lines[-tail_n:])) if raw_lines else st.caption("No raw log lines yet.")
 
 
-# --- [71] Compact status bar + Copy last lines ---
-import json as _json
+# --- [76] Only today + hourly sparkline ---
 import streamlit as _st
-from datetime import date as _date
-from utils.jobs_history import read_jobs, tail_raw
+import pandas as _pd
+from datetime import date as _date, datetime as _dt
+from utils.jobs_history import read_jobs
 
-_st.subheader("Today Status")
+_st.subheader("Only Today + Hourly Runs")
 rows = read_jobs()
-today = _date.today()
-ok_set = {"ok","success","sent","no_change","skipped"}
-err_set = {"error","failed"}
-ok_cnt = 0; err_cnt = 0
-for r in rows:
-    ts = (r.get("ts") or "")
-    if "T" in ts:
-        d = ts.split("T",1)[0]
+only_today = _st.toggle("Only today", value=True)
+series = [r for r in rows if True]
+if only_today:
+    today = _date.today()
+    tmp = []
+    for r in rows:
+        ts = (r.get("ts") or "")
         try:
-            y,m,d2 = map(int, d.split("-"))
-            if _date(y,m,d2) == today:
-                if r.get("status") in ok_set: ok_cnt += 1
-                if r.get("status") in err_set: err_cnt += 1
+            t = _dt.fromisoformat(ts.replace("Z",""))
+            if t.date() == today:
+                tmp.append(r)
         except Exception:
             pass
-c1,c2 = _st.columns(2)
-c1.metric("OK today", ok_cnt)
-c2.metric("Errors today", err_cnt)
-
-_st.subheader("Copy last 20 lines")
-last20 = "\n".join(tail_raw(20))
-_st.code(last20 or "(no logs yet)", language="json")
-_st.download_button("Download last_20_lines.txt", data=last20.encode("utf-8"), file_name="last_20_lines.txt", use_container_width=True)
+    series = tmp
+# build hourly counts
+counts = {}
+for r in series:
+    ts = (r.get("ts") or "")
+    try:
+        t = _dt.fromisoformat(ts.replace("Z",""))
+        hh = t.strftime("%H:00")
+        counts[hh] = counts.get(hh, 0) + 1
+    except Exception:
+        pass
+if counts:
+    # ensure all 24 hours show
+    idx = [f"{i:02d}:00" for i in range(24)]
+    df = _pd.DataFrame({"hour": idx, "runs": [_pd.Series(counts).reindex(idx, fill_value=0)[h] for h in idx]})
+    df = df.set_index("hour")
+    _st.line_chart(df, use_container_width=True)
+else:
+    _st.info("No runs logged for the selected window.")
