@@ -1,5 +1,5 @@
 """
-Lightweight JSONL jobs history utilities (fixed syntax).
+Lightweight JSONL jobs history utilities (stable).
 """
 from __future__ import annotations
 import os, json, datetime as dt
@@ -14,7 +14,7 @@ def read_jobs(path: str = LOG_FILE) -> List[Dict[str, Any]]:
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
-            if not line:
+            if not line: 
                 continue
             try:
                 rows.append(json.loads(line))
@@ -22,41 +22,35 @@ def read_jobs(path: str = LOG_FILE) -> List[Dict[str, Any]]:
                 continue
     return rows
 
-def read_jobs_raw(path: str = LOG_FILE) -> List[str]:
-    if not os.path.exists(path):
-        return []
-    lines: List[str] = []
-    with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.rstrip("\n")
-            if line:
-                lines.append(line)
-    return lines
-
-def filter_jobs(rows: List[Dict[str, Any]], job_names=None, statuses=None, date_from=None, date_to=None):
+def filter_jobs(rows: List[Dict[str, Any]], job_names=None, statuses=None, date_from=None, date_to=None, text=None):
     job_names = set(job_names or [])
     statuses = set(statuses or [])
     out: List[Dict[str, Any]] = []
+    text_l = (text or "").strip().lower()
     for r in rows:
-        j = r.get("job", "")
-        s = r.get("status", "")
+        j = (r.get("job","") or "")
+        s = (r.get("status","") or "")
         ts = r.get("ts")
         try:
-            dtobj = dt.datetime.fromisoformat((ts or "").replace("Z", ""))
+            dtobj = dt.datetime.fromisoformat((ts or "").replace("Z",""))
         except Exception:
             dtobj = None
-        if job_names and j not in job_names:
+        if job_names and j not in job_names: 
             continue
-        if statuses and s not in statuses:
+        if statuses and s not in statuses: 
             continue
-        if date_from and dtobj and dtobj.date() < date_from:
+        if date_from and dtobj and dtobj.date() < date_from: 
             continue
-        if date_to and dtobj and dtobj.date() > date_to:
+        if date_to and dtobj and dtobj.date() > date_to: 
             continue
+        if text_l:
+            blob = json.dumps(r, ensure_ascii=False).lower()
+            if text_l not in blob:
+                continue
         out.append(r)
     return out
 
-def write_job(job: str, status: str, details: dict = None, path: str = LOG_FILE) -> bool:
+def write_job(job: str, status: str, details: dict=None, path: str=LOG_FILE) -> bool:
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
     except Exception:

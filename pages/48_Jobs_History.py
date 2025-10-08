@@ -37,26 +37,30 @@ raw_lines=read_jobs_raw(LOG_FILE); tail_n=st.slider("Show last N lines", 10, 500
 st.code("\n".join(raw_lines[-tail_n:])) if raw_lines else st.caption("No raw log lines yet.")
 
 
-# [51–55] Logs Tail
-import json as _json
+# --- Filters & Search (added 57) ---
 import streamlit as _st
-try:
-    from utils.logs_tail import tail_jsonl
-except Exception:
-    tail_jsonl = None
+from datetime import date as _date
+from utils.jobs_history import read_jobs, filter_jobs
 
-_st.subheader("Logs Tail (last 100 lines)")
-if tail_jsonl is None:
-    _st.info("logs_tail not available")
-else:
-    lines = tail_jsonl(100)
-    if not lines:
-        _st.info("No logs yet.")
-    else:
-        def _parse(line):
-            try: return _json.loads(line)
-            except Exception: return None
-        parsed = [x for x in map(_parse, lines) if isinstance(x, dict)]
-        if parsed:
-            _st.dataframe(parsed[-50:])
-        _st.expander("Raw lines", expanded=False).code("\n".join(lines), language="json")
+_st.subheader("Filters")
+rows = read_jobs()
+jobs = sorted({r.get("job","") for r in rows if r.get("job")})
+statuses = sorted({r.get("status","") for r in rows if r.get("status")})
+c1,c2,c3,c4 = _st.columns([1.4,1.4,1.2,2.0])
+sel_jobs = c1.multiselect("Jobs", jobs, default=jobs[:3] if jobs else [])
+sel_status = c2.multiselect("Status", statuses, default=[])
+d_from = c3.date_input("From", value=_date.today())
+d_to = c4.date_input("To", value=_date.today())
+q = _st.text_input("Quick search", placeholder="text in any field...")
+
+filtered = filter_jobs(
+    rows,
+    job_names=sel_jobs or None,
+    statuses=sel_status or None,
+    date_from=d_from,
+    date_to=d_to,
+    text=q,
+)
+_st.write(f"**Results:** {len(filtered)}")
+if filtered:
+    _st.dataframe(filtered[-200:])

@@ -49,21 +49,30 @@ st.dataframe(df, use_container_width=True) if not df.empty else st.info("No aler
 st.divider(); st.subheader("Summary Preview"); st.markdown(md)
 
 
-import streamlit as st
-from utils.jobs_history import read_jobs
-try:
-    from utils.digest_runner import run_digest
-except Exception:
-    run_digest=None
+# --- Open Latest Digest (added 56) ---
+import os, glob, streamlit as _st
 
-st.subheader("Digest Status")
+_st.subheader("Open Latest Digest")
 try:
-    rows=read_jobs(); cand=[r for r in rows if r.get("job")=="digest_run"]
-    last=cand[-1] if cand else {}
-    st.write(f"**Last Attempt:** {last.get('ts','—')} | **Status:** {last.get('status','—')}")
+    files = sorted(glob.glob(os.path.join("backups","digest_*.*")), key=lambda p: os.path.getmtime(p), reverse=True)
+    latest_csv = next((p for p in files if p.endswith(".csv")), None)
+    latest_md  = next((p for p in files if p.endswith(".md")), None)
+    latest_txt = next((p for p in files if p.endswith(".txt")), None)
+    cols = _st.columns(3)
+    if latest_csv:
+        with open(latest_csv, "rb") as fh:
+            cols[0].download_button("Download latest CSV", data=fh.read(), file_name=os.path.basename(latest_csv), use_container_width=True)
+    else:
+        cols[0].button("No CSV yet", disabled=True, use_container_width=True)
+    if latest_md:
+        with open(latest_md, "rb") as fh:
+            cols[1].download_button("Download latest MD", data=fh.read(), file_name=os.path.basename(latest_md), use_container_width=True)
+    else:
+        cols[1].button("No MD yet", disabled=True, use_container_width=True)
+    if latest_txt:
+        with open(latest_txt, "rb") as fh:
+            cols[2].download_button("Download latest TXT", data=fh.read(), file_name=os.path.basename(latest_txt), use_container_width=True)
+    else:
+        cols[2].button("No TXT yet", disabled=True, use_container_width=True)
 except Exception:
-    st.info("No digest history yet.")
-
-if st.button("Run Digest Now", type="primary", use_container_width=True) and run_digest:
-    res=run_digest(subject_prefix="Vega Daily Digest (Manual)")
-    st.write(res)
+    _st.info("No digest artifacts found yet.")

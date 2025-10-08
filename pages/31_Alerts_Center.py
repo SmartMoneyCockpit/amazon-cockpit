@@ -103,3 +103,27 @@ if st.button("Evaluate Now"):
         st.success(f"Alert(s) queued to: {qpath}")
     else:
         st.info("No alerts triggered.")
+
+
+# --- Status Tiles (added 58) ---
+import os, json, streamlit as _st
+from utils.jobs_history import read_jobs
+
+STATE_PATH = os.getenv("ALERTS_NOTIFY_STATE", "/tmp/alerts_notify_state.json")
+
+_st.subheader("Status Tiles")
+rows = read_jobs()
+cand = [r for r in rows if r.get("job")=="alerts_flush"]
+last = cand[-1] if cand else {}
+last_fp = ""
+try:
+    if os.path.exists(STATE_PATH):
+        st_data = json.loads(open(STATE_PATH,"r",encoding="utf-8").read())
+        last_fp = (st_data.get("last_fp") or "")[:12]
+except Exception:
+    pass
+
+c1,c2,c3 = _st.columns(3)
+c1.metric("Last Send Status", last.get("status","—"))
+c2.metric("Last Send Time", (last.get("ts","—").replace("T"," ").replace("Z","")) if last.get("ts") else "—")
+c3.metric("Fingerprint", last_fp or "—")

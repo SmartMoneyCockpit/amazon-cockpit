@@ -35,35 +35,13 @@ st.divider(); st.subheader("How to complete restore")
 st.markdown("1) Restore to staging. 2) Validate. 3) Create a live backup. 4) Replace live files.")
 
 
-# [51–55] Size & SHA1 + Copy Path
-import os, time as _time
+# --- Verify SHA-1 (added 59) ---
 import streamlit as _st
-from utils.hash_utils import file_sha1, file_size_bytes
+from utils.hash_utils import file_sha1
 
-def _fmt_sz(n):
-    try:
-        for unit in ["B","KB","MB","GB"]:
-            if n < 1024.0:
-                return f"{n:3.1f} {unit}"
-            n /= 1024.0
-        return f"{n:.1f} TB"
-    except Exception:
-        return str(n)
-
-try:
-    if files:
-        _st.caption("Showing size and SHA1 for each file:")
-        for f in files[:50]:
-            name = os.path.basename(f)
-            size = file_size_bytes(f)
-            sha1 = file_sha1(f)
-            cols = _st.columns([3,1.2,2.8])
-            with cols[0]:
-                _st.write(f"**{name}**")
-                _st.code(f, language="bash")
-            with cols[1]:
-                _st.write(_fmt_sz(size))
-            with cols[2]:
-                _st.code(sha1 or "(sha1 unavailable)")
-except Exception:
-    pass
+if files:
+    _st.subheader("Verify SHA-1")
+    target = _st.selectbox("Pick a file to verify", options=[os.path.basename(f) for f in files], index=0)
+    full = next((f for f in files if os.path.basename(f)==target), None)
+    if full and _st.button("Recompute SHA-1", use_container_width=True):
+        _st.code(file_sha1(full) or "(not available)")
