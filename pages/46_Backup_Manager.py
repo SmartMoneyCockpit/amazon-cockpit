@@ -35,32 +35,26 @@ st.divider(); st.subheader("How to complete restore")
 st.markdown("1) Restore to staging. 2) Validate. 3) Create a live backup. 4) Replace live files.")
 
 
-# --- [89] Type-aware preview (JSON/CSV/MD) ---
+# --- [94] Restore from .trash back to backups (guarded) ---
 import streamlit as _st
-import pandas as _pd
-import json as _json
-
-if 'full' in locals() and full and os.path.exists(full):
-    ext = os.path.splitext(full)[1].lower()
-    _st.subheader("Preview (type-aware)")
-    try:
-        if ext == ".json":
-            txt = open(full,"r",encoding="utf-8").read()[:4000]
-            try: obj = _json.loads(txt)
-            except Exception: obj = None
-            if obj: _st.json(obj)
-            else: _st.code(txt)
-        elif ext == ".csv":
-            try:
-                df = _pd.read_csv(full).head(50)
-                _st.dataframe(df, use_container_width=True)
-            except Exception as e:
-                _st.error(f"CSV preview error: {e}")
-        elif ext == ".md":
-            txt = open(full,"r",encoding="utf-8").read()[:4000]
-            _st.markdown(txt)
-        else:
-            _st.caption("Unknown type; showing raw head:")
-            _st.code(open(full,'r',encoding='utf-8',errors='ignore').read()[:1000])
-    except Exception as e:
-        _st.error(str(e))
+_TRASH = os.path.join(BACKUPS_DIR, ".trash")
+os.makedirs(_TRASH, exist_ok=True)
+st_files = []
+try:
+    st_files = [os.path.join(_TRASH, f) for f in os.listdir(_TRASH) if os.path.isfile(os.path.join(_TRASH, f))]
+except Exception:
+    st_files = []
+if st_files:
+    _st.subheader("Restore from Trash")
+    pick = _st.selectbox("Pick file in .trash", options=[os.path.basename(f) for f in st_files], index=0)
+    full = next((f for f in st_files if os.path.basename(f)==pick), None)
+    confirm = _st.checkbox("Confirm restore to backups/")
+    if _st.button("Restore selected", disabled=not confirm, use_container_width=True) and full:
+        try:
+            dest = os.path.join(BACKUPS_DIR, os.path.basename(full))
+            os.replace(full, dest)
+            _st.success(f"Restored to {dest}")
+        except Exception as e:
+            _st.error(str(e))
+else:
+    _st.caption("Trash is empty.")

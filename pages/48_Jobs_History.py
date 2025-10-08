@@ -37,28 +37,29 @@ raw_lines=read_jobs_raw(LOG_FILE); tail_n=st.slider("Show last N lines", 10, 500
 st.code("\n".join(raw_lines[-tail_n:])) if raw_lines else st.caption("No raw log lines yet.")
 
 
-# --- [86] Today-by-Job summary + export CSV ---
-import streamlit as _st
-import pandas as _pd
-from datetime import date as _date, datetime as _dt
-from utils.jobs_history import read_jobs
-
-_st.subheader("Today by Job")
-rows = read_jobs()
-today = _date.today()
-counts = {}
-for r in rows:
-    ts = (r.get("ts") or "")
+# --- [91] Archive & Clear Log (guarded) + Download full log ---
+import os, streamlit as _st
+LOG_PATH = os.path.join("logs","vega_jobs.jsonl")
+_st.subheader("Log File Actions")
+colA, colB = _st.columns(2)
+if os.path.exists(LOG_PATH):
+    # Download full log
     try:
-        t = _dt.fromisoformat(ts.replace("Z",""))
-        if t.date() == today:
-            j = r.get("job","(unknown)")
-            counts[j] = counts.get(j, 0) + 1
-    except Exception:
-        pass
-if counts:
-    df = _pd.DataFrame({"job": list(counts.keys()), "runs": list(counts.values())}).sort_values("runs", ascending=False)
-    _st.bar_chart(df.set_index("job"))
-    _st.download_button("Download today_by_job.csv", data=df.to_csv(index=False).encode("utf-8"), file_name="today_by_job.csv", use_container_width=True)
+        with open(LOG_PATH, "rb") as fh:
+            colA.download_button("Download full jobs log", data=fh.read(), file_name="vega_jobs.jsonl", use_container_width=True)
+    except Exception as e:
+        colA.error(str(e))
 else:
-    _st.caption("No jobs recorded today.")
+    _st.caption("No log file yet.")
+# Archive & clear (guarded)
+confirm = colB.checkbox("Archive & clear (confirm)")
+if colB.button("Archive & clear now", disabled=not confirm, use_container_width=True) and os.path.exists(LOG_PATH):
+    try:
+        os.makedirs("backups", exist_ok=True)
+        ts = __import__("datetime").datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        dst = os.path.join("backups", f"jobs_log_{ts}.jsonl")
+        os.replace(LOG_PATH, dst)
+        open(LOG_PATH, "w", encoding="utf-8").close()
+        _st.success(f"Archived to {dst} and cleared current log.")
+    except Exception as e:
+        _st.error(str(e))

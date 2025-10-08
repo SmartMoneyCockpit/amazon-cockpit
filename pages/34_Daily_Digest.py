@@ -49,30 +49,31 @@ st.dataframe(df, use_container_width=True) if not df.empty else st.info("No aler
 st.divider(); st.subheader("Summary Preview"); st.markdown(md)
 
 
-# --- [88] Backups Folder (search) ---
-import os, time, glob, streamlit as _st
-_st.subheader("Backups Folder (search)")
-q = _st.text_input("Filter by substring", value="digest_", help="e.g., 'digest_' or leave blank")
-paths = []
+# --- [93] Digest History (last 20) with artifacts ---
+import streamlit as _st
+from utils.jobs_history import read_jobs
+
+_st.subheader("Digest History (last 20)")
 try:
-    paths = [os.path.join("backups", f) for f in os.listdir("backups")]
-    paths = [p for p in paths if os.path.isfile(p)]
-except Exception:
-    paths = []
-if q:
-    low = q.lower()
-    paths = [p for p in paths if low in os.path.basename(p).lower()]
-paths.sort(key=lambda p: os.path.getmtime(p), reverse=True)
-if not paths:
-    _st.info("No matching files in backups/.")
-else:
-    for p in paths[:200]:
-        name = os.path.basename(p)
-        ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getmtime(p)))
-        with _st.expander(f"{name} — {ts}", expanded=False):
-            _st.code(p, language="bash")
-            try:
-                with open(p, "rb") as fh:
-                    _st.download_button("Download", data=fh.read(), file_name=name, use_container_width=True)
-            except Exception as e:
-                _st.error(str(e))
+    rows = read_jobs()
+    hist = [r for r in rows if r.get("job") in ("digest_run","digest_send_latest")]
+    if not hist:
+        _st.info("No digest history yet.")
+    else:
+        subset = hist[-20:]
+        for r in reversed(subset):
+            ts = (r.get("ts","") or "").replace("T"," ").replace("Z","")
+            stt = r.get("status","")
+            det = r.get("details") or {}
+            arts = det.get("artifacts") if isinstance(det, dict) else None
+            with _st.expander(f"{ts} — {stt}", expanded=False):
+                _st.json(det if isinstance(det, dict) else {"details": str(det)})
+                if arts and isinstance(arts, list):
+                    for p in arts:
+                        try:
+                            with open(p, "rb") as fh:
+                                _st.download_button(f"Download {p.split('/')[-1]}", data=fh.read(), file_name=p.split('/')[-1])
+                        except Exception:
+                            pass
+except Exception as e:
+    _st.error(str(e))

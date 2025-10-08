@@ -48,23 +48,40 @@ st.divider()
 st.caption("This page is menu-safe and does not change your sidebar. It reuses the existing Settings & Controls slot.")
 
 
-# --- [90] Network Debug ---
-import streamlit as _st, socket, os
-_st.subheader("Network Debug")
-# Public IP (best-effort)
-ip = "(unavailable)"
-try:
-    import requests
-    r = requests.get("https://api.ipify.org?format=json", timeout=6)
-    if 200 <= r.status_code < 300:
-        ip = r.json().get("ip","(unknown)")
-except Exception as e:
-    ip = f"(error: {str(e)[:60]})"
-_st.write(f"Public IP: **{ip}**")
-# DNS resolve test
-host = _st.text_input("DNS resolve test host", value="api.sendgrid.com")
-try:
-    resolved = socket.gethostbyname(host)
-    _st.write(f"{host} → {resolved}")
-except Exception as e:
-    _st.write(f"{host} → (resolve error: {str(e)[:60]})")
+# --- [95] Support Snapshot ZIP ---
+import os, io, zipfile, json, streamlit as _st
+from utils.sentinel import run_all as _sentinel_run_all
+
+_st.subheader("Support Snapshot")
+if _st.button("Create support_snapshot.zip", use_container_width=True):
+    try:
+        os.makedirs("backups", exist_ok=True)
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+            # include: sentinel info, last 200 log lines, dir listings
+            try:
+                info = _sentinel_run_all(custom_env=["SENDGRID_API_KEY","DIGEST_EMAIL_FROM","DIGEST_EMAIL_TO","WEBHOOK_URL","SHEETS_KEY"])
+                z.writestr("sentinel.json", json.dumps(info, ensure_ascii=False, indent=2))
+            except Exception as e:
+                z.writestr("sentinel_error.txt", str(e))
+            # last 200 lines of jobs log
+            try:
+                lp = os.path.join("logs","vega_jobs.jsonl")
+                if os.path.exists(lp):
+                    with open(lp,"r",encoding="utf-8") as f:
+                        lines = f.readlines()[-200:]
+                    z.writestr("jobs_tail.jsonl", "".join(lines))
+            except Exception as e:
+                z.writestr("jobs_tail_error.txt", str(e))
+            # dir listings
+            for d in ["backups","snapshots"]:
+                try:
+                    if os.path.exists(d):
+                        listing = "\n".join(sorted(os.listdir(d)))
+                        z.writestr(f"{d}_ls.txt", listing)
+                except Exception as e:
+                    z.writestr(f"{d}_ls_error.txt", str(e))
+        data = buf.getvalue()
+        _st.download_button("Download support_snapshot.zip", data=data, file_name="support_snapshot.zip", use_container_width=True)
+    except Exception as e:
+        _st.error(str(e))

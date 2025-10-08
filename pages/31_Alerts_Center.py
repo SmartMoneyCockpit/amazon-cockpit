@@ -105,27 +105,25 @@ if st.button("Evaluate Now"):
         st.info("No alerts triggered.")
 
 
-# --- [87] Silence alerts for N minutes (writes marker file) ---
+# --- [92] Silence countdown + Cancel ---
 import os, json, time, streamlit as _st
 SILENCE_PATH = os.path.join("logs","alerts_silenced.json")
-_st.subheader("Silence Alerts")
-mins = _st.number_input("Minutes to silence", min_value=1, max_value=240, value=30, step=5)
-reason = _st.text_input("Reason (optional)", value="manual silence")
-if _st.button("Activate Silence", use_container_width=True):
-    os.makedirs("logs", exist_ok=True)
-    until = int(time.time()) + int(mins)*60
-    obj = {"silenced_until": until, "reason": reason}
+_st.subheader("Silence Status")
+if os.path.exists(SILENCE_PATH):
     try:
-        with open(SILENCE_PATH,"w",encoding="utf-8") as f: f.write(json.dumps(obj))
-        _st.success(f"Silenced until epoch {until}.")
+        obj = json.loads(open(SILENCE_PATH,"r",encoding="utf-8").read())
+        until = int(obj.get("silenced_until", 0))
+        remain = max(0, until - int(time.time()))
+        mins = remain // 60
+        secs = remain % 60
+        _st.write(f"Remaining: **{mins}m {secs}s** | Reason: {obj.get('reason','')}")
+        if _st.button("Cancel Silence", use_container_width=True):
+            try:
+                os.remove(SILENCE_PATH)
+                _st.success("Silence marker removed.")
+            except Exception as e:
+                _st.error(str(e))
     except Exception as e:
         _st.error(str(e))
-# Show current state
-try:
-    if os.path.exists(SILENCE_PATH):
-        stt = json.loads(open(SILENCE_PATH,"r",encoding="utf-8").read())
-        _st.info(f"Silence marker present: {stt}")
-    else:
-        _st.caption("No active silence marker.")
-except Exception as e:
-    _st.error(str(e))
+else:
+    _st.caption("No active silence marker.")
