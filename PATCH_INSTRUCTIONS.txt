@@ -1,0 +1,39 @@
+
+Apply these small patches after unzipping:
+
+1) Append at the END of app.py:
+--------------------------------------------------
+# --- [106–110] Logging init (menu-safe) ---
+try:
+    import os
+    from utils.logging_setup import init_logging  # type: ignore
+    init_logging()
+except Exception as _e:
+    pass
+
+--------------------------------------------------
+
+2) In pages/44_Settings_Controls.py, add this block near the bottom (Feature Flags panel):
+--------------------------------------------------
+# --- [106–110] Feature Flags (save to config/feature_flags.yaml) ---
+import os as _os, yaml as _yaml, streamlit as _st
+_cfg_dir = "config"; _cfg_path = _os.path.join(_cfg_dir, "feature_flags.yaml")
+_st.subheader("Feature Flags")
+try:
+    _os.makedirs(_cfg_dir, exist_ok=True)
+    if _os.path.exists(_cfg_path):
+        _flags = _yaml.safe_load(open(_cfg_path, "r", encoding="utf-8")) or {}
+    else:
+        _flags = {"dev_tools_link_enabled": True, "alerts_auto_refresh_default_secs": 0, "digest_attachments_default": False}
+    c1,c2,c3 = _st.columns(3)
+    _flags["dev_tools_link_enabled"] = c1.toggle("Show Developer Tools link", value=bool(_flags.get("dev_tools_link_enabled", True)))
+    _flags["alerts_auto_refresh_default_secs"] = int(c2.number_input("Alerts default auto-refresh (secs)", min_value=0, max_value=600, value=int(_flags.get("alerts_auto_refresh_default_secs", 0)), step=5))
+    _flags["digest_attachments_default"] = bool(c3.toggle("Digest: attachments default ON", value=bool(_flags.get("digest_attachments_default", False))))
+    if _st.button("Save Feature Flags", use_container_width=True):
+        with open(_cfg_path, "w", encoding="utf-8") as f:
+            _yaml.safe_dump(_flags, f, sort_keys=True)
+        _st.success("Saved feature flags.")
+except Exception as _e:
+    _st.error(f"Feature flags failed: {_e}")
+
+--------------------------------------------------

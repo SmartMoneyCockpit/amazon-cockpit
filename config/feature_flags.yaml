@@ -1,0 +1,4 @@
+# Feature flags (edit via Settings Controls panel)
+dev_tools_link_enabled: true
+alerts_auto_refresh_default_secs: 0
+digest_attachments_default: false

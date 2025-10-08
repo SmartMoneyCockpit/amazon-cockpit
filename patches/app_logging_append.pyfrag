@@ -1,0 +1,7 @@
+# --- [106–110] Logging init (menu-safe) ---
+try:
+    import os
+    from utils.logging_setup import init_logging  # type: ignore
+    init_logging()
+except Exception as _e:
+    pass
