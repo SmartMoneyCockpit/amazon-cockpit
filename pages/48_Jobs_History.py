@@ -37,43 +37,27 @@ raw_lines=read_jobs_raw(LOG_FILE); tail_n=st.slider("Show last N lines", 10, 500
 st.code("\n".join(raw_lines[-tail_n:])) if raw_lines else st.caption("No raw log lines yet.")
 
 
-# --- [76] Only today + hourly sparkline ---
+# --- [81] Errors only + Export 'Errors today' ---
 import streamlit as _st
-import pandas as _pd
-from datetime import date as _date, datetime as _dt
-from utils.jobs_history import read_jobs
+import csv as _csv, io as _io
+from datetime import date as _date
+from utils.jobs_history import read_jobs, is_today, ERR_SET
 
-_st.subheader("Only Today + Hourly Runs")
+_st.subheader("Errors Today")
 rows = read_jobs()
-only_today = _st.toggle("Only today", value=True)
-series = [r for r in rows if True]
-if only_today:
-    today = _date.today()
-    tmp = []
-    for r in rows:
-        ts = (r.get("ts") or "")
-        try:
-            t = _dt.fromisoformat(ts.replace("Z",""))
-            if t.date() == today:
-                tmp.append(r)
-        except Exception:
-            pass
-    series = tmp
-# build hourly counts
-counts = {}
-for r in series:
-    ts = (r.get("ts") or "")
-    try:
-        t = _dt.fromisoformat(ts.replace("Z",""))
-        hh = t.strftime("%H:00")
-        counts[hh] = counts.get(hh, 0) + 1
-    except Exception:
-        pass
-if counts:
-    # ensure all 24 hours show
-    idx = [f"{i:02d}:00" for i in range(24)]
-    df = _pd.DataFrame({"hour": idx, "runs": [_pd.Series(counts).reindex(idx, fill_value=0)[h] for h in idx]})
-    df = df.set_index("hour")
-    _st.line_chart(df, use_container_width=True)
+errs_today = [r for r in rows if r.get("status") in ERR_SET and is_today(r.get("ts",""))]
+toggle_only_errs = _st.toggle("Show only errors today", value=False)
+if toggle_only_errs:
+    _st.dataframe(errs_today[-200:], use_container_width=True)
+if errs_today:
+    buf = _io.StringIO()
+    if errs_today:
+        # write CSV
+        keys = sorted({k for r in errs_today for k in r.keys()})
+        w = _csv.DictWriter(buf, fieldnames=keys)
+        w.writeheader()
+        for r in errs_today:
+            w.writerow(r)
+    _st.download_button("Download errors_today.csv", data=buf.getvalue().encode("utf-8"), file_name="errors_today.csv", use_container_width=True)
 else:
-    _st.info("No runs logged for the selected window.")
+    _st.caption("No errors logged today.")

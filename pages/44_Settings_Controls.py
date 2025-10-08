@@ -48,24 +48,22 @@ st.divider()
 st.caption("This page is menu-safe and does not change your sidebar. It reuses the existing Settings & Controls slot.")
 
 
-# --- [80] Env Viewer (masked) ---
-import os, streamlit as _st
-
-_st.subheader("Env Viewer (masked)")
-keys = ["SENDGRID_API_KEY","DIGEST_EMAIL_FROM","DIGEST_EMAIL_TO","ALERTS_EMAIL_FROM","ALERTS_EMAIL_TO","WEBHOOK_URL","SHEETS_KEY"]
-show = _st.toggle("Show secrets", value=False)
-
-rows = []
-for k in keys:
-    v = os.getenv(k, "")
-    if v:
-        val = v if show else (v[:3] + "****" + v[-3:] if len(v)>=7 else "****")
-    else:
-        val = "(unset)"
-    rows.append({"key": k, "value": val})
+# --- [85] Email/Webhook ping tests ---
+import streamlit as _st
 try:
-    import pandas as _pd
-    _st.dataframe(_pd.DataFrame(rows))
+    from utils.ping import ping_sendgrid, ping_webhook
 except Exception:
-    for r in rows:
-        _st.write(f"{r['key']}: {r['value']}")
+    ping_sendgrid = None; ping_webhook = None
+
+_st.subheader("Connectivity Pings")
+c1,c2 = _st.columns(2)
+if ping_sendgrid:
+    if c1.button("Ping SendGrid", use_container_width=True):
+        _st.write(ping_sendgrid())
+else:
+    c1.button("Ping SendGrid unavailable", disabled=True, use_container_width=True)
+if ping_webhook:
+    if c2.button("Ping Webhook URL", use_container_width=True):
+        _st.write(ping_webhook())
+else:
+    c2.button("Ping Webhook unavailable", disabled=True, use_container_width=True)

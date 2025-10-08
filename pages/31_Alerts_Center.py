@@ -105,37 +105,24 @@ if st.button("Evaluate Now"):
         st.info("No alerts triggered.")
 
 
-# --- [77] State file download + Reset fingerprint ---
-import os, json, streamlit as _st
-STATE_PATH = os.getenv("ALERTS_NOTIFY_STATE", "/tmp/alerts_notify_state.json")
+# --- [82] Webhook link + retry counters ---
+import os, streamlit as _st
+from utils.jobs_history import read_jobs
 
-_st.subheader("State File")
-_st.code(STATE_PATH, language="bash")
-if os.path.exists(STATE_PATH):
-    try:
-        with open(STATE_PATH, "rb") as fh:
-            data = fh.read()
-        _st.download_button("Download state file", data=data, file_name=os.path.basename(STATE_PATH), use_container_width=True)
-    except Exception as e:
-        _st.error(str(e))
+_st.subheader("Webhook Link")
+url = os.getenv("WEBHOOK_URL","").strip() or os.getenv("ALERTS_WEBHOOK_URL","").strip()
+if url:
+    _st.markdown(f"[Open webhook URL]({url})")
 else:
-    _st.info("No state file yet.")
+    _st.info("No WEBHOOK_URL configured.")
 
-_st.subheader("Reset Fingerprint (guarded)")
-confirm = _st.checkbox("I understand this forces next alerts email to send")
-if _st.button("Reset fingerprint", disabled=not confirm, use_container_width=True):
-    try:
-        if os.path.exists(STATE_PATH):
-            obj = {}
-            try:
-                obj = json.loads(open(STATE_PATH,"r",encoding="utf-8").read())
-            except Exception:
-                obj = {}
-            obj["last_fp"] = ""
-            with open(STATE_PATH,"w",encoding="utf-8") as f:
-                f.write(json.dumps(obj))
-            _st.success("Fingerprint reset (last_fp='').")
-        else:
-            _st.info("No state file to reset; will recompute next run anyway.")
-    except Exception as e:
-        _st.error(str(e))
+_st.subheader("Retry Counters (last 20)")
+rows = read_jobs()
+last20 = [r for r in rows if r.get("job")=="alerts_flush"][-20:]
+errors = sum(1 for r in last20 if r.get("status")=="error")
+no_change = sum(1 for r in last20 if r.get("status")=="no_change")
+sent = sum(1 for r in last20 if r.get("status")=="sent")
+c1,c2,c3 = _st.columns(3)
+c1.metric("Sent", sent)
+c2.metric("No change", no_change)
+c3.metric("Errors", errors)

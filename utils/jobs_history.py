@@ -1,11 +1,13 @@
 """
-Lightweight JSONL jobs history utilities (stable for hourly sparkline).
+JSONL jobs history utilities (stable for 'errors today' + counters).
 """
 from __future__ import annotations
 import os, json, datetime as dt
 from typing import List, Dict, Any
 
 LOG_FILE = os.path.join("logs", "vega_jobs.jsonl")
+OK_SET = {"ok","success","sent","no_change","skipped"}
+ERR_SET = {"error","failed"}
 
 def read_jobs(path: str = LOG_FILE) -> List[Dict[str, Any]]:
     if not os.path.exists(path):
@@ -21,6 +23,14 @@ def read_jobs(path: str = LOG_FILE) -> List[Dict[str, Any]]:
             except Exception:
                 continue
     return rows
+
+def is_today(ts: str) -> bool:
+    try:
+        d = (ts or "").split("T",1)[0]
+        y,m,dd = map(int, d.split("-"))
+        return dt.date(y,m,dd) == dt.date.today()
+    except Exception:
+        return False
 
 def filter_jobs(rows: List[Dict[str, Any]], job_names=None, statuses=None, date_from=None, date_to=None, text=None):
     job_names = set(job_names or [])

@@ -35,15 +35,20 @@ st.divider(); st.subheader("How to complete restore")
 st.markdown("1) Restore to staging. 2) Validate. 3) Create a live backup. 4) Replace live files.")
 
 
-# --- [79] Restore to staging (dry-run) ---
+# --- [84] SHA-1 Cache Verify ---
 import streamlit as _st
+from utils.hash_cache import get_cached, recompute_and_store, verify
+
 if files:
-    _st.subheader("Restore to Staging (dry‑run)")
-    pick = _st.selectbox("Pick file", options=[os.path.basename(f) for f in files], index=0, key="dryrun_pick")
+    _st.subheader("SHA-1 Cache Verify")
+    pick = _st.selectbox("Pick file", options=[os.path.basename(f) for f in files], index=0, key="sha1_pick")
     full = next((f for f in files if os.path.basename(f)==pick), None)
     if full:
-        # Simple checks
-        exists = os.path.exists(full)
-        size = os.path.getsize(full) if exists else 0
-        _st.write(f"Exists: {exists} | Size: {size} bytes")
-        _st.caption("No changes applied. This validates readability only.")
+        cached, ts = get_cached(full)
+        _st.write(f"Cached: {cached or '(none)'} {'(ts='+str(ts)+')' if ts else ''}")
+        if _st.button("Recompute & Update Cache", use_container_width=True):
+            res = recompute_and_store(full)
+            _st.write(res)
+        if _st.button("Verify against Cache", use_container_width=True):
+            res = verify(full)
+            _st.write(res)
