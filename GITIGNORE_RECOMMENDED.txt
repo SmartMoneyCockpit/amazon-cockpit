@@ -1,0 +1,10 @@
+
+# Recommended ignore additions (merge into your .gitignore)
+backups/
+snapshots/
+logs/
+*.zip
+.streamlit/secrets.toml
+.env
+credentials.json
+gcp_service_account.json
