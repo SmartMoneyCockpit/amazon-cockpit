@@ -48,40 +48,42 @@ st.divider()
 st.caption("This page is menu-safe and does not change your sidebar. It reuses the existing Settings & Controls slot.")
 
 
-# --- [95] Support Snapshot ZIP ---
-import os, io, zipfile, json, streamlit as _st
-from utils.sentinel import run_all as _sentinel_run_all
+# --- [100] Self-check dashboard + Purge trash ---
+import os, time, streamlit as _st
+from utils.sentinel import run_all as _run_all
 
-_st.subheader("Support Snapshot")
-if _st.button("Create support_snapshot.zip", use_container_width=True):
+_st.subheader("Self-check Dashboard")
+try:
+    res = _run_all(custom_env=["SENDGRID_API_KEY","DIGEST_EMAIL_FROM","DIGEST_EMAIL_TO","WEBHOOK_URL","SHEETS_KEY"])
+    # Simple traffic lights
+    env_ok = all(v=="SET" for v in res.get("env",{}).values()) if res.get("env") else False
+    dirs_ok = all(v in ("OK","CREATED") for v in res.get("dirs",{}).values()) if res.get("dirs") else False
+    colA, colB = _st.columns(2)
+    colA.metric("Env keys", "OK" if env_ok else "CHECK")
+    colB.metric("Dirs", "OK" if dirs_ok else "CHECK")
+    _st.json(res)
+except Exception as e:
+    _st.error(str(e))
+
+_st.subheader("Purge trash older than N days")
+_TRASH = os.path.join("backups",".trash")
+os.makedirs(_TRASH, exist_ok=True)
+days = _st.number_input("Days", min_value=1, max_value=365, value=14, step=1)
+confirm = _st.checkbox("Confirm purge")
+if _st.button("Purge now", disabled=not confirm, use_container_width=True):
     try:
-        os.makedirs("backups", exist_ok=True)
-        buf = io.BytesIO()
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-            # include: sentinel info, last 200 log lines, dir listings
+        cutoff = time.time() - days*24*3600
+        removed = []
+        for f in os.listdir(_TRASH):
+            p = os.path.join(_TRASH, f)
             try:
-                info = _sentinel_run_all(custom_env=["SENDGRID_API_KEY","DIGEST_EMAIL_FROM","DIGEST_EMAIL_TO","WEBHOOK_URL","SHEETS_KEY"])
-                z.writestr("sentinel.json", json.dumps(info, ensure_ascii=False, indent=2))
-            except Exception as e:
-                z.writestr("sentinel_error.txt", str(e))
-            # last 200 lines of jobs log
-            try:
-                lp = os.path.join("logs","vega_jobs.jsonl")
-                if os.path.exists(lp):
-                    with open(lp,"r",encoding="utf-8") as f:
-                        lines = f.readlines()[-200:]
-                    z.writestr("jobs_tail.jsonl", "".join(lines))
-            except Exception as e:
-                z.writestr("jobs_tail_error.txt", str(e))
-            # dir listings
-            for d in ["backups","snapshots"]:
-                try:
-                    if os.path.exists(d):
-                        listing = "\n".join(sorted(os.listdir(d)))
-                        z.writestr(f"{d}_ls.txt", listing)
-                except Exception as e:
-                    z.writestr(f"{d}_ls_error.txt", str(e))
-        data = buf.getvalue()
-        _st.download_button("Download support_snapshot.zip", data=data, file_name="support_snapshot.zip", use_container_width=True)
+                if os.path.isfile(p) and os.path.getmtime(p) < cutoff:
+                    os.remove(p); removed.append(f)
+            except Exception:
+                continue
+        if removed:
+            _st.success(f"Removed: {', '.join(removed[:10])}{' ...' if len(removed)>10 else ''}")
+        else:
+            _st.info("Nothing to purge.")
     except Exception as e:
         _st.error(str(e))

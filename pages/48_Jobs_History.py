@@ -37,29 +37,31 @@ raw_lines=read_jobs_raw(LOG_FILE); tail_n=st.slider("Show last N lines", 10, 500
 st.code("\n".join(raw_lines[-tail_n:])) if raw_lines else st.caption("No raw log lines yet.")
 
 
-# --- [91] Archive & Clear Log (guarded) + Download full log ---
-import os, streamlit as _st
-LOG_PATH = os.path.join("logs","vega_jobs.jsonl")
-_st.subheader("Log File Actions")
-colA, colB = _st.columns(2)
-if os.path.exists(LOG_PATH):
-    # Download full log
+# --- [96] Last X hours + status table + export CSV ---
+import streamlit as _st
+import pandas as _pd
+from datetime import datetime as _dt, timedelta as _td
+from utils.jobs_history import read_jobs
+
+_st.subheader("Last X Hours")
+rows = read_jobs()
+hours = _st.slider("Window (hours)", min_value=1, max_value=72, value=24, step=1)
+cut = _dt.utcnow() - _td(hours=hours)
+win = []
+for r in rows:
+    ts = (r.get("ts") or "")
     try:
-        with open(LOG_PATH, "rb") as fh:
-            colA.download_button("Download full jobs log", data=fh.read(), file_name="vega_jobs.jsonl", use_container_width=True)
-    except Exception as e:
-        colA.error(str(e))
+        t = _dt.fromisoformat(ts.replace("Z",""))
+        if t >= cut:
+            win.append(r)
+    except Exception:
+        pass
+if win:
+    df = _pd.DataFrame(win)
+    # status counts
+    counts = df["status"].value_counts(dropna=False).reset_index()
+    counts.columns = ["status","count"]
+    _st.dataframe(counts, use_container_width=True)
+    _st.download_button("Download window.csv", data=df.to_csv(index=False).encode("utf-8"), file_name="jobs_window.csv", use_container_width=True)
 else:
-    _st.caption("No log file yet.")
-# Archive & clear (guarded)
-confirm = colB.checkbox("Archive & clear (confirm)")
-if colB.button("Archive & clear now", disabled=not confirm, use_container_width=True) and os.path.exists(LOG_PATH):
-    try:
-        os.makedirs("backups", exist_ok=True)
-        ts = __import__("datetime").datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        dst = os.path.join("backups", f"jobs_log_{ts}.jsonl")
-        os.replace(LOG_PATH, dst)
-        open(LOG_PATH, "w", encoding="utf-8").close()
-        _st.success(f"Archived to {dst} and cleared current log.")
-    except Exception as e:
-        _st.error(str(e))
+    _st.info("No jobs in this window.")

@@ -35,26 +35,26 @@ st.divider(); st.subheader("How to complete restore")
 st.markdown("1) Restore to staging. 2) Validate. 3) Create a live backup. 4) Replace live files.")
 
 
-# --- [94] Restore from .trash back to backups (guarded) ---
-import streamlit as _st
-_TRASH = os.path.join(BACKUPS_DIR, ".trash")
-os.makedirs(_TRASH, exist_ok=True)
-st_files = []
-try:
-    st_files = [os.path.join(_TRASH, f) for f in os.listdir(_TRASH) if os.path.isfile(os.path.join(_TRASH, f))]
-except Exception:
-    st_files = []
-if st_files:
-    _st.subheader("Restore from Trash")
-    pick = _st.selectbox("Pick file in .trash", options=[os.path.basename(f) for f in st_files], index=0)
-    full = next((f for f in st_files if os.path.basename(f)==pick), None)
-    confirm = _st.checkbox("Confirm restore to backups/")
-    if _st.button("Restore selected", disabled=not confirm, use_container_width=True) and full:
+# --- [99] Export backups manifest CSV ---
+import csv as _csv, io as _io, time as _time
+from utils.hash_cache import get_cached
+
+if files:
+    _st.subheader("Export Manifest")
+    rows = []
+    for f in files:
         try:
-            dest = os.path.join(BACKUPS_DIR, os.path.basename(full))
-            os.replace(full, dest)
-            _st.success(f"Restored to {dest}")
-        except Exception as e:
-            _st.error(str(e))
-else:
-    _st.caption("Trash is empty.")
+            name = os.path.basename(f)
+            size = os.path.getsize(f)
+            mtime = _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(os.path.getmtime(f)))
+            sha1, ts = get_cached(f)
+            rows.append({"name": name, "size_bytes": size, "mtime": mtime, "sha1_cached": sha1 or ""})
+        except Exception:
+            continue
+    buf = _io.StringIO()
+    if rows:
+        w = _csv.DictWriter(buf, fieldnames=list(rows[0].keys()))
+        w.writeheader(); w.writerows(rows)
+        _st.download_button("Download backups_manifest.csv", data=buf.getvalue().encode("utf-8"), file_name="backups_manifest.csv", use_container_width=True)
+    else:
+        _st.caption("No backups found for manifest.")

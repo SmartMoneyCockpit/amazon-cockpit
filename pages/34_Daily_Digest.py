@@ -49,31 +49,31 @@ st.dataframe(df, use_container_width=True) if not df.empty else st.info("No aler
 st.divider(); st.subheader("Summary Preview"); st.markdown(md)
 
 
-# --- [93] Digest History (last 20) with artifacts ---
-import streamlit as _st
-from utils.jobs_history import read_jobs
-
-_st.subheader("Digest History (last 20)")
+# --- [98] Digest Schedule Preview + Enable/Disable marker ---
+import os, json, streamlit as _st
+_st.subheader("Digest Schedule")
+yaml_path = os.path.join("tools","jobs_digest.yaml")
+disabled_marker = os.path.join("tools",".digest_disabled")
+# Preview (best-effort)
 try:
-    rows = read_jobs()
-    hist = [r for r in rows if r.get("job") in ("digest_run","digest_send_latest")]
-    if not hist:
-        _st.info("No digest history yet.")
+    import yaml
+    if os.path.exists(yaml_path):
+        cfg = yaml.safe_load(open(yaml_path,"r",encoding="utf-8")) or []
+        _st.json(cfg)
     else:
-        subset = hist[-20:]
-        for r in reversed(subset):
-            ts = (r.get("ts","") or "").replace("T"," ").replace("Z","")
-            stt = r.get("status","")
-            det = r.get("details") or {}
-            arts = det.get("artifacts") if isinstance(det, dict) else None
-            with _st.expander(f"{ts} — {stt}", expanded=False):
-                _st.json(det if isinstance(det, dict) else {"details": str(det)})
-                if arts and isinstance(arts, list):
-                    for p in arts:
-                        try:
-                            with open(p, "rb") as fh:
-                                _st.download_button(f"Download {p.split('/')[-1]}", data=fh.read(), file_name=p.split('/')[-1])
-                        except Exception:
-                            pass
+        _st.info("jobs_digest.yaml not found.")
 except Exception as e:
-    _st.error(str(e))
+    _st.caption(f"YAML preview error: {e}")
+# Enable/Disable marker
+on = not os.path.exists(disabled_marker)
+new_state = _st.toggle("Digest schedule enabled?", value=on)
+if new_state != on:
+    try:
+        if new_state:
+            if os.path.exists(disabled_marker): os.remove(disabled_marker)
+            _st.success("Digest enabled marker applied (removed .digest_disabled).")
+        else:
+            open(disabled_marker,"w",encoding="utf-8").write("disabled")
+            _st.warning("Digest disabled marker created (tools/.digest_disabled).")
+    except Exception as e:
+        _st.error(str(e))

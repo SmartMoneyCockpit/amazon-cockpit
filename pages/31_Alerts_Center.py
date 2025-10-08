@@ -105,25 +105,21 @@ if st.button("Evaluate Now"):
         st.info("No alerts triggered.")
 
 
-# --- [92] Silence countdown + Cancel ---
-import os, json, time, streamlit as _st
-SILENCE_PATH = os.path.join("logs","alerts_silenced.json")
-_st.subheader("Silence Status")
-if os.path.exists(SILENCE_PATH):
-    try:
-        obj = json.loads(open(SILENCE_PATH,"r",encoding="utf-8").read())
-        until = int(obj.get("silenced_until", 0))
-        remain = max(0, until - int(time.time()))
-        mins = remain // 60
-        secs = remain % 60
-        _st.write(f"Remaining: **{mins}m {secs}s** | Reason: {obj.get('reason','')}")
-        if _st.button("Cancel Silence", use_container_width=True):
-            try:
-                os.remove(SILENCE_PATH)
-                _st.success("Silence marker removed.")
-            except Exception as e:
-                _st.error(str(e))
-    except Exception as e:
-        _st.error(str(e))
-else:
-    _st.caption("No active silence marker.")
+# --- [97] Refresh tools (manual + optional auto) ---
+import streamlit as _st
+_st.subheader("Refresh")
+col1, col2 = _st.columns(2)
+if col1.button("Manual refresh", use_container_width=True):
+    _st.experimental_rerun()
+interval = col2.number_input("Auto-refresh (seconds, 0=off)", min_value=0, max_value=600, value=0, step=5)
+try:
+    # Best-effort auto-refresh if available
+    if interval and interval > 0:
+        try:
+            from streamlit_autorefresh import st_autorefresh
+            st_autorefresh(interval=interval*1000, limit=None, key="alerts_autorefresh")
+        except Exception:
+            # fallback: show a hint only
+            _st.caption("Auto-refresh helper not available in this environment.")
+except Exception:
+    pass
