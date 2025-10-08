@@ -35,3 +35,22 @@ if options:
 st.divider(); st.subheader("Raw Log Tail (debug)")
 raw_lines=read_jobs_raw(LOG_FILE); tail_n=st.slider("Show last N lines", 10, 500, 80, 10)
 st.code("\n".join(raw_lines[-tail_n:])) if raw_lines else st.caption("No raw log lines yet.")
+
+
+import streamlit as st
+from utils.jobs_history import read_jobs
+
+st.subheader("Summary KPIs")
+try:
+    rows=read_jobs()
+    total=len(rows)
+    ok=sum(1 for r in rows if r.get("status") in ("ok","success","sent","no_change","skipped"))
+    failed=sum(1 for r in rows if r.get("status") in ("error","failed"))
+    last=rows[-1]["ts"] if rows else "—"
+    c1,c2,c3,c4=st.columns(4)
+    c1.metric("Total", total)
+    c2.metric("Succeeded", ok)
+    c3.metric("Failed", failed)
+    c4.metric("Last Run", last.replace("T"," ").replace("Z",""))
+except Exception as _e:
+    st.info("No jobs found or cannot read log.")

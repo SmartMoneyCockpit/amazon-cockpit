@@ -47,3 +47,23 @@ with c4:
 st.divider(); st.subheader("Queued Alerts")
 st.dataframe(df, use_container_width=True) if not df.empty else st.info("No alerts queued yet.")
 st.divider(); st.subheader("Summary Preview"); st.markdown(md)
+
+
+import streamlit as st
+from utils.jobs_history import read_jobs
+try:
+    from utils.digest_runner import run_digest
+except Exception:
+    run_digest=None
+
+st.subheader("Digest Status")
+try:
+    rows=read_jobs(); cand=[r for r in rows if r.get("job")=="digest_run"]
+    last=cand[-1] if cand else {}
+    st.write(f"**Last Attempt:** {last.get('ts','—')} | **Status:** {last.get('status','—')}")
+except Exception:
+    st.info("No digest history yet.")
+
+if st.button("Run Digest Now", type="primary", use_container_width=True) and run_digest:
+    res=run_digest(subject_prefix="Vega Daily Digest (Manual)")
+    st.write(res)

@@ -46,3 +46,14 @@ with tab3:
 
 st.divider()
 st.caption("This page is menu-safe and does not change your sidebar. It reuses the existing Settings & Controls slot.")
+
+
+import streamlit as st
+try:
+    from workers.snapshot_heartbeat import main as heartbeat_main
+except Exception:
+    heartbeat_main=None
+
+st.subheader("Ops Shortcuts")
+if st.button("Run Heartbeat Now", use_container_width=True) and heartbeat_main:
+    p=heartbeat_main(); st.success(f"Heartbeat snapshot saved: {p}")

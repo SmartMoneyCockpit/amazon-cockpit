@@ -34,3 +34,12 @@ def main(argv:list[str])->int:
     if len(argv)>1 and argv[1]=="--no-email": send=False
     return run_digest_scheduler(send)
 if __name__=="__main__": raise SystemExit(main(sys.argv))
+
+
+from utils.digest_runner import run_digest
+
+def main():
+    return run_digest(subject_prefix="Vega Daily Digest")
+
+if __name__ == "__main__":
+    main()
