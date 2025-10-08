@@ -1,0 +1,22 @@
+# --- Modules 1–12 (one panel for quick access, menu-safe) ---
+try:
+    import streamlit as _st
+    with _st.expander("Modules 1–12", expanded=False):
+        _st.markdown("**Product & Ads**")
+        _st.page_link("pages/60_Reviews_Ratings_Monitor.py", label="Reviews & Ratings Monitor")
+        _st.page_link("pages/64_BuyBox_Price_Intel.py", label="Buy Box & Price Intelligence")
+        _st.page_link("pages/65_Keyword_Rank_Tracker.py", label="Keyword Rank Tracker & Competitor Gap")
+        _st.page_link("pages/66_Promotions_Calendar.py", label="Promotions / Coupons Calendar")
+        _st.markdown("**Orders & Catalog**")
+        _st.page_link("pages/61_Returns_Defect_Analyzer.py", label="Returns / Defect Rate Analyzer")
+        _st.page_link("pages/62_FBA_Inventory_Restock.py", label="FBA Inventory & Restock Planner")
+        _st.page_link("pages/69_Shipment_Builder_Tracker.py", label="Shipment Builder & Tracker (FBA)")
+        _st.page_link("pages/70_Customer_Messages_Triage.py", label="Customer Messages Triage")
+        _st.markdown("**Finance**")
+        _st.page_link("pages/67_FBA_Fee_Storage_Forecaster.py", label="FBA Fee & Storage Cost Forecaster")
+        _st.page_link("pages/68_Seasonality_Demand_Forecast.py", label="Seasonality & Demand Forecast")
+        _st.page_link("pages/71_US_MX_CA_Aggregator.py", label="US–MX–CA Aggregator (FX-aware)")
+        _st.markdown("**Compliance**")
+        _st.page_link("pages/63_Policy_Account_Health.py", label="Policy & Account Health Watch")
+except Exception as _e:
+    pass

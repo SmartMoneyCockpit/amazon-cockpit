@@ -1,0 +1,4 @@
+date,country,revenue_usd,units,cogs_usd
+2025-10-01,US,1000,50,600
+2025-10-01,MX,800,40,480
+2025-10-01,CA,600,30,360

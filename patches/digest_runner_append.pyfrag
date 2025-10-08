@@ -1,0 +1,17 @@
+# --- [Modules 1–12] include digest queue items if present ---
+try:
+    from utils.digest_queue import list_summaries as _dq_list
+    _dq = _dq_list()
+    if _dq:
+        try:
+            parts = ["<h4>Module Summaries</h4><ul>"]
+            for item in _dq:
+                title = item.get("title") or item.get("module","module")
+                rows = item.get("rows") or []
+                parts.append(f"<li><b>{title}</b> — {len(rows)} rows</li>")
+            parts.append("</ul>")
+            html = (html or "") + "".join(parts)
+        except Exception:
+            pass
+except Exception:
+    pass

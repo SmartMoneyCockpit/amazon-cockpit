@@ -1,0 +1,2 @@
+msg_id,asin,from,subject,body,received_at,status
+m1,B0001,customer@example.com,Question,When will it arrive?,2025-10-01 09:00,open

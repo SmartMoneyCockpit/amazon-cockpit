@@ -1,0 +1,2 @@
+order_id,asin,sku,reason,refund_code,qty,date
+1001,B0001,SKU-1,defective,DF,1,2025-10-01
