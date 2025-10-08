@@ -20,3 +20,36 @@ if st.button("Promote Now", disabled=not agree):
         st.success(f"Promoted. Backup: {backup_path}"); st.json(counts)
     except Exception as e:
         log_job("promote_restore","error", str(e), {"staging": sel}); st.error(f"Failed: {e}")
+
+
+# --- Available Backups (added) ---
+import os, time
+import streamlit as st
+
+BACKUPS_DIR = "backups"
+
+def _list_backups():
+    try:
+        files = [os.path.join(BACKUPS_DIR, f) for f in os.listdir(BACKUPS_DIR)]
+        files = [f for f in files if os.path.isfile(f)]
+        files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+        return files
+    except Exception:
+        return []
+
+st.subheader("Available Backups")
+files = _list_backups()
+if not files:
+    st.info("No backups found.")
+else:
+    options = [os.path.basename(f) for f in files]
+    choice = st.selectbox("Select backup to inspect", options=options, index=0)
+    sel = files[options.index(choice)]
+    st.code(sel)
+    with st.expander("Preview (first 4 KB)", expanded=False):
+        try:
+            with open(sel, "rb") as fh:
+                st.code(fh.read(4096).decode("utf-8", errors="ignore"))
+        except Exception as e:
+            st.error(str(e))
+st.caption("Note: Promotion to Live already performs a pre-backup for safety.")

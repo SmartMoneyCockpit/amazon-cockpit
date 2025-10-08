@@ -33,3 +33,43 @@ else:
                         st.download_button("Download staging tree CSV", data=df.to_csv(index=False).encode("utf-8"), file_name="staging_tree.csv")
 st.divider(); st.subheader("How to complete restore")
 st.markdown("1) Restore to staging. 2) Validate. 3) Create a live backup. 4) Replace live files.")
+
+
+# --- Backups Browser (added) ---
+import os, time
+import streamlit as st
+
+BACKUPS_DIR = "backups"
+
+def list_backups(prefix: str = ""):
+    try:
+        files = [os.path.join(BACKUPS_DIR, f) for f in os.listdir(BACKUPS_DIR)]
+        files = [f for f in files if os.path.isfile(f)]
+        if prefix:
+            files = [f for f in files if os.path.basename(f).startswith(prefix)]
+        files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+        return files
+    except Exception:
+        return []
+
+st.subheader("Backups Browser")
+col1, col2 = st.columns([2,1])
+with col1:
+    pref = st.text_input("Filter by prefix", value="digest_", help="e.g., 'digest_' to list daily digest artifacts")
+with col2:
+    st.caption("Most recent first")
+files = list_backups(pref.strip())
+if not files:
+    st.info("No backups found yet.")
+else:
+    for f in files[:50]:
+        name = os.path.basename(f)
+        ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getmtime(f)))
+        with st.expander(f"{name} — {ts}", expanded=False):
+            st.write(f"`{f}`")
+            try:
+                with open(f, "rb") as fh:
+                    data = fh.read()
+                st.download_button("Download", data=data, file_name=name, use_container_width=True)
+            except Exception as e:
+                st.error(f"Cannot open file: {e}")
