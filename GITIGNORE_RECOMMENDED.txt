@@ -2,7 +2,3 @@ backups/
 snapshots/
 logs/
 *.zip
-.streamlit/secrets.toml
-.env
-credentials.json
-gcp_service_account.json
