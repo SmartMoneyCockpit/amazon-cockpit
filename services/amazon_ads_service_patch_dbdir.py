@@ -1,29 +1,23 @@
 # services/amazon_ads_service_patch_dbdir.py
-# Drop-in replacement or mix-in for v7: makes /data optional and falls back to /tmp/vega_data
-
-import os, pathlib
+# Provides a safe, writable DATA_DIR even when /data isn't mounted.
+import os, pathlib, tempfile
 
 def ensure_writable_dir():
     cand = os.getenv("VEGA_DATA_DIR", "/data")
-    # Try candidate
     try:
-        pathlib.Path(cand).mkdir(parents=True, exist_ok=True)
-        test = pathlib.Path(cand) / ".write_test"
+        p = pathlib.Path(cand)
+        p.mkdir(parents=True, exist_ok=True)
+        test = p / ".write_test"
         with open(test, "wb") as f:
             f.write(b"ok")
-        test.unlink(missing_ok=True)
-        return cand, None
+        try:
+            test.unlink()
+        except Exception:
+            pass
+        return str(p), None
     except Exception as e:
-        # Fallback to /tmp
-        fallback = "/tmp/vega_data"
-        pathlib.Path(fallback).mkdir(parents=True, exist_ok=True)
-        return fallback, f"Permission denied on {cand}; using {fallback} (ephemeral). Set VEGA_DATA_DIR to a writable mounted disk."
-
-# Usage in services/amazon_ads_service.py:
-# replace:
-#   DATA_DIR = os.getenv("VEGA_DATA_DIR", "/data")
-#   pathlib.Path(DATA_DIR).mkdir(parents=True, exist_ok=True)
-# with:
-#   from services.amazon_ads_service_patch_dbdir import ensure_writable_dir
-#   DATA_DIR, _VEGA_DIR_WARN = ensure_writable_dir()
-#   if _VEGA_DIR_WARN: print(_VEGA_DIR_WARN)
+        # Fallback to /tmp (ephemeral)
+        fallback = pathlib.Path(tempfile.gettempdir()) / "vega_data"
+        fallback.mkdir(parents=True, exist_ok=True)
+        warn = f"Permission denied on {cand}; using {fallback} (ephemeral). Add a Persistent Disk at /data or set VEGA_DATA_DIR."
+        return str(fallback), warn
