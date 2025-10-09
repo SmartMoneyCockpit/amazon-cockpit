@@ -7,10 +7,33 @@ from pathlib import Path
 st.set_page_config(page_title="Backup Manager", layout="wide")
 st.title("Backup Manager")
 
-DATA_DIR = os.getenv("VEGA_DATA_DIR", "/data")
-BACKUPS = Path(DATA_DIR) / "backups"
-DB_PATH = Path(DATA_DIR) / "vega_ads.db"
-BACKUPS.mkdir(parents=True, exist_ok=True)
+# Use the same data dir that the service uses (includes fallback logic if patched)
+try:
+    from services.amazon_ads_service import DATA_DIR
+except Exception:
+    DATA_DIR = os.getenv("VEGA_DATA_DIR", "/data")
+
+DATA_DIR = Path(DATA_DIR)
+BACKUPS = DATA_DIR / "backups"
+DB_PATH = DATA_DIR / "vega_ads.db"
+
+error_banner = None
+# Try to ensure backups dir; if not, fall back to /tmp
+try:
+    BACKUPS.mkdir(parents=True, exist_ok=True)
+except Exception as e:
+    # fallback to /tmp
+    DATA_DIR = Path("/tmp/vega_data")
+    BACKUPS = DATA_DIR / "backups"
+    DB_PATH = DATA_DIR / "vega_ads.db"
+    try:
+        BACKUPS.mkdir(parents=True, exist_ok=True)
+    except Exception as e2:
+        error_banner = f"Cannot create backups directory in /data or /tmp: {e2}"
+
+st.caption(f"Data directory: **{DATA_DIR}**")
+if error_banner:
+    st.error(error_banner)
 
 def create_backup():
     ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
@@ -23,7 +46,7 @@ def create_backup():
 
 colA, colB = st.columns([1,1])
 with colA:
-    if st.button("Create Backup Now"):
+    if st.button("Create Backup Now", use_container_width=True):
         try:
             out = create_backup()
             st.success(f"Backup created: {out.name}")
@@ -31,32 +54,40 @@ with colA:
             st.error(f"Backup failed: {e}")
 
 with colB:
-    if st.button("Refresh List"):
+    if st.button("Refresh List", use_container_width=True):
         st.experimental_rerun()
 
 # ----- Existing Backups -----
 st.subheader("Existing Backups")
-files = sorted(BACKUPS.glob("*.gz"), key=lambda p: p.stat().st_mtime, reverse=True)
+files = []
+try:
+    files = sorted(BACKUPS.glob("*.gz"), key=lambda p: p.stat().st_mtime, reverse=True)
+except Exception as e:
+    st.error(f"Cannot list backups in {BACKUPS}: {e}")
+
 if not files:
     st.info("No backups yet.")
 else:
     rows = []
     for p in files:
-        stat = p.stat()
-        rows.append({
-            "file": p.name,
-            "size_mb": round(stat.st_size / 1024 / 1024, 2),
-            "modified_utc": datetime.utcfromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
-        })
-    import pandas as pd
-    df = pd.DataFrame(rows)
-    st.dataframe(df, use_container_width=True, height=240)
-
-    # Download first (latest) file convenience
-    latest = files[0]
-    with open(latest, "rb") as f:
-        st.download_button("⬇️ Download latest", data=f.read(),
-                           file_name=latest.name, mime="application/gzip")
+        try:
+            stat = p.stat()
+            rows.append({
+                "file": p.name,
+                "size_mb": round(stat.st_size / 1024 / 1024, 2),
+                "modified_utc": datetime.utcfromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+            })
+        except Exception:
+            pass
+    try:
+        import pandas as pd
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, height=240)
+        latest = files[0]
+        with open(latest, "rb") as f:
+            st.download_button("⬇️ Download latest", data=f.read(),
+                               file_name=latest.name, mime="application/gzip")
+    except Exception as e:
+        st.error(f"Display error: {e}")
 
 st.markdown("---")
 st.subheader("How to complete restore")
