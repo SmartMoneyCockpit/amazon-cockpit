@@ -1,36 +1,26 @@
-import datetime as dt
-import pandas as pd
+# pages/26_Finance_Monthly_Export.py
 import streamlit as st
-from infra.sheets_client import SheetsClient
+from datetime import date
 from utils.exporters import export_finance_monthly
 
 st.set_page_config(page_title="Finance Monthly Export", layout="wide")
 st.title("Finance Monthly Export")
 
-st.caption("Exports the 'Finances' worksheet for a chosen month to snapshots/YYYY-MM/. PDF is optional (auto if reportlab is installed).")
+today = date.today()
+col1, col2 = st.columns(2)
+year = col1.number_input("Year", min_value=2018, max_value=2100, value=today.year, step=1)
+month = col2.number_input("Month", min_value=1, max_value=12, value=today.month, step=1)
 
-# Pick month/year
-today = dt.date.today()
-col1, col2 = st.columns([1,2])
-with col1:
-    year = st.number_input("Year", min_value=2000, max_value=today.year+1, value=today.year, step=1)
-with col2:
-    month = st.selectbox("Month", list(range(1,13)), index=today.month-1, format_func=lambda m: f"{m:02d}")
-
-def _read_finances():
-    try:
-        sc = SheetsClient()
-        rows = sc.read_table("Finances")
-        return pd.DataFrame(rows)
-    except Exception as e:
-        st.info("Google Sheets not connected — exporting an empty CSV.")
-        return pd.DataFrame(columns=["date","gmv","acos","tacos","refund_rate"])
-
-if st.button("Export Now"):
-    df = _read_finances()
-    csv_path, maybe_pdf = export_finance_monthly(df, int(year), int(month))
-    st.success(f"Exported CSV to: {csv_path}")
-    if maybe_pdf is not None:
-        st.success(f"Exported PDF to: {maybe_pdf}")
-    else:
-        st.info("PDF skipped (install 'reportlab' to enable PDF output).")
+if st.button("Generate CSV"):
+    with st.spinner("Building monthly export..."):
+        try:
+            csv_bytes = export_finance_monthly(int(year), int(month))
+            st.success("Export ready.")
+            st.download_button("⬇️ Download CSV", data=csv_bytes,
+                               file_name=f"finance_{int(year)}_{int(month):02d}.csv",
+                               mime="text/csv")
+        except Exception as e:
+            st.error(f"Export failed: {e}")
+            st.info("Make sure Ads metrics exist for the selected month (run Metrics tab or nightly cache).")
+else:
+    st.caption("Pick a year/month and click Generate CSV.")
