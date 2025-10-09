@@ -1,0 +1,34 @@
+path,status
+README_DELTA3.txt,missing_in_user -> will add
+README_MODULES_1_12.md,missing_in_user -> will add
+README_SELECTION_ENGINE.md,missing_in_user -> will add
+infra/sheets_safe.py,missing_in_user -> will add
+pages/72_Product_Selection_Engine.py,missing_in_user -> will add
+patches/app_selection_link.pyfrag,missing_in_user -> will add
+templates/candidates.csv,missing_in_user -> will add
+utils/selection_engine.py,missing_in_user -> will add
+.github/workflows/ci_smoke.yml,differs -> manual review
+DEPLOY_ON_RENDER.md,differs -> manual review
+OPS_COMMENT_SNIPPET.md,differs -> manual review
+OPS_TICKET_TEMPLATE.md,differs -> manual review
+RENDER_JOBS.md,differs -> manual review
+app.py,differs -> will patch if in SAFE targets
+config/feature_flags.yaml,differs -> manual review
+pages/31_Alerts_Center.py,differs -> manual review
+pages/34_Daily_Digest.py,differs -> manual review
+pages/41_Alerts_Notifications.py,differs -> manual review
+pages/44_Settings_Controls.py,differs -> will patch if in SAFE targets
+pages/46_Backup_Manager.py,differs -> manual review
+pages/47_File_Inventory.py,differs -> manual review
+pages/48_Jobs_History.py,differs -> manual review
+pages/49_Restore_Manager.py,differs -> manual review
+render.yaml,differs -> manual review
+requirements.txt,differs -> will patch if in SAFE targets
+scripts/ci_smoke.py,differs -> manual review
+utils/alerts_notify.py,differs -> manual review
+utils/email_sendgrid.py,differs -> manual review
+utils/exporters.py,differs -> manual review
+utils/feature_flags.py,differs -> manual review
+utils/jobs_history.py,differs -> manual review
+utils/logging_setup.py,differs -> manual review
+workers/digest_scheduler.py,differs -> manual review

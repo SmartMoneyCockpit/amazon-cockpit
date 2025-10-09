@@ -1,0 +1,4 @@
+asin,sku,title,category,cost,target_price,avg_star,return_rate_30d,competitor_price,buybox_price,keyword_rank_avg,promo_lift_pct,roas,storage_cost_share,forecast_12w_units,lead_time_days,days_of_cover,policy_risk
+B0001,SKU-1,Wireless Charger,Electronics,12.00,24.99,4.3,0.03,23.99,24.99,18,0.10,1.7,0.06,1200,21,28,none
+B0002,SKU-2,USB-C Cable,Accessories,2.50,8.99,4.6,0.02,8.49,8.79,12,0.06,2.1,0.03,900,14,35,none
+B0003,SKU-3,Wall Charger,Electronics,7.00,19.99,3.9,0.07,19.49,19.99,35,0.04,1.2,0.10,600,30,50,high

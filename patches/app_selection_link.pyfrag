@@ -1,0 +1,7 @@
+# --- Product Selection Engine link (menu-safe) ---
+try:
+    import streamlit as _st
+    with _st.expander("Modules 1–12", expanded=False):
+        _st.page_link("pages/72_Product_Selection_Engine.py", label="Product Selection Engine")
+except Exception:
+    pass
