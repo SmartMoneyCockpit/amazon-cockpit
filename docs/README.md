@@ -1,0 +1,1 @@
+# Vega v7 – unified code + cron. See README-CRON.md for schedules.
