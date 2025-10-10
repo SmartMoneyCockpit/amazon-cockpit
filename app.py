@@ -1,27 +1,88 @@
 import os
+import json
+import time
+import requests
 import streamlit as st
-from infra.sheets_client import SheetsClient
-st.set_page_config(page_title="Vega Cockpit", layout="wide", initial_sidebar_state="expanded")
 
+# ────────────────────────────────────────────────────────────────────────────────
+# Page config
+# ────────────────────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Vega Cockpit - Google Sheets",
+    page_title="Vega Cockpit — Settings & API",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
-# Hide Streamlit default nav so only our accordion appears
+# Hide Streamlit's default sidebar nav (we render our own accordion)
 st.markdown(
     """
     <style>
-    [data-testid="stSidebarNav"] { display:none !important; }
-    nav[aria-label="Sidebar"] ul { display:none !important; }
+      [data-testid="stSidebarNav"] { display:none !important; }
+      nav[aria-label="Sidebar"] ul { display:none !important; }
     </style>
-    """, unsafe_allow_html=True,
+    """,
+    unsafe_allow_html=True,
 )
 
-# ---------------- Sidebar: Amazon-style accordion with page links ----------------
+# ────────────────────────────────────────────────────────────────────────────────
+# Helpers
+# ────────────────────────────────────────────────────────────────────────────────
+def _get_secret_like(key: str, default=None):
+    """Read from st.secrets first, then env. Accepts lower/UPPER keys."""
+    try:
+        v = st.secrets.get(key, None)
+        if v is not None:
+            return v
+    except Exception:
+        pass
+    v = os.getenv(key, None)
+    if v is not None:
+        return v
+    # try uppercase fallback
+    return os.getenv(key.upper(), default)
+
+def _fmt(v):
+    if v is None or (isinstance(v, str) and not v.strip()):
+        return "—"
+    if isinstance(v, (dict, list)):
+        return json.dumps(v, indent=2)
+    return str(v)
+
+def _api_base() -> str:
+    # Prefer secrets, then env. Example: https://amazon-cockpit-api.onrender.com
+    return (_get_secret_like("API_URL", "") or "").rstrip("/")
+
+def _api_key() -> str:
+    return _get_secret_like("API_KEY", "")
+
+def api_get(path: str, timeout: float = 15.0):
+    """GET helper with x-api-key header. Returns (ok: bool, payload_or_err: Any)."""
+    base = _api_base()
+    if not base:
+        return False, "API_URL not set. Add API_URL to Render Environment."
+    url = f"{base}{path if path.startswith('/') else '/'+path}"
+    headers = {}
+    key = _api_key()
+    if key:
+        headers["x-api-key"] = key
+    try:
+        r = requests.get(url, headers=headers, timeout=timeout)
+        if r.status_code == 200:
+            # try json
+            try:
+                return True, r.json()
+            except Exception:
+                return True, r.text
+        return False, f"{r.status_code} {r.text}"
+    except Exception as e:
+        return False, str(e)
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Sidebar — Amazon-style accordion with page links (same structure you had)
+# ────────────────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.subheader("Menu")
+
     with st.expander("Home & Health", expanded=False):
         st.page_link("pages/00_About_and_Health.py", label="About and Health")
         st.page_link("pages/00_Home_Global_Overview.py", label="Home Global Overview")
@@ -66,51 +127,71 @@ with st.sidebar:
         st.page_link("pages/42_PPC_Live.py", label="PPC Live")
 
     st.header("Utilities")
-    if st.button("Test Google Sheets Connection"):
+    # Replace the Sheets test with an API test
+    if st.button("Test API Connection"):
+        ok, payload = api_get("/health")
+        if ok:
+            st.success(f"API health OK: {payload}")
+        else:
+            st.error(f"API health failed: {payload}")
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Main — Settings preview (from env/secrets) + sample live call preview
+# ────────────────────────────────────────────────────────────────────────────────
+st.title("Vega Cockpit • Settings & API Integration")
+
+cols = st.columns(3)
+with cols[0]:
+    st.metric("API URL", _fmt(_api_base()))
+with cols[1]:
+    st.metric("API Key set?", "Yes" if bool(_api_key()) else "No")
+with cols[2]:
+    # Try a lightweight live call
+    ok_ping, payload_ping = api_get("/health")
+    st.metric("API Health", "OK" if ok_ping else "ERROR")
+    if not ok_ping and payload_ping:
+        st.caption(f"Health detail: {_fmt(payload_ping)}")
+
+st.subheader("Settings preview (env/secrets)")
+settings_rows = [
+    {"key": "timezone",          "value": _fmt(_get_secret_like("timezone", "America/Mazatlan"))},
+    {"key": "base_currency",     "value": _fmt(_get_secret_like("base_currency", "USD"))},
+    {"key": "report_start_date", "value": _fmt(_get_secret_like("report_start_date", "2025-10-02"))},
+    {"key": "ads_enabled",       "value": _fmt(_get_secret_like("ads_enabled", True))},
+    {"key": "auto_snapshot_pdf", "value": _fmt(_get_secret_like("auto_snapshot_pdf", True))},
+    {"key": "DATABASE_URL set?", "value": "Yes" if bool(_get_secret_like("DATABASE_URL", "")) else "No"},
+]
+st.dataframe(settings_rows, use_container_width=True)
+
+st.divider()
+st.subheader("Live sample (products)")
+
+left, right = st.columns([1,2])
+with left:
+    limit = st.number_input("Limit", min_value=1, max_value=200, value=10, step=1)
+    if st.button("Fetch /v1/products"):
+        ok, payload = api_get(f"/v1/products?limit={limit}")
+        st.session_state["_last_products_resp"] = (ok, payload)
+        time.sleep(0.1)
+
+with right:
+    ok, payload = st.session_state.get("_last_products_resp", (None, None))
+    if ok is None:
+        st.info("Click **Fetch /v1/products** to test a live DB call.")
+    elif ok:
+        st.success("Live data loaded")
         try:
-            sc = SheetsClient()
-            _ = sc.read_table("Settings")
-            st.success("Sheets connection OK.")
-        except Exception as e:
-            st.error(f"Connection test failed: {e}")
-
-# ---------------- Main: Settings preview with defaults fallback ----------------
-st.title("Vega Cockpit • Google Sheets Integration")
-st.subheader("Settings preview")
-
-def _get(k, d=None):
-    try:
-        return st.secrets.get(k, d)
-    except Exception:
-        return os.getenv(k.upper(), d)
-
-def _fmt(v):
-    if v is None or v == "":
-        return "—"
-    return str(v)
-
-try:
-    sc = SheetsClient()
-    rows = sc.read_table("Settings")
-    if rows:
-        import pandas as pd
-        df = pd.DataFrame(rows)
-        st.dataframe(df.tail(20), use_container_width=True)
+            import pandas as pd
+            if isinstance(payload, list):
+                st.dataframe(pd.DataFrame(payload), use_container_width=True)
+            else:
+                st.code(_fmt(payload), language="json")
+        except Exception:
+            st.code(_fmt(payload), language="json")
     else:
-        st.info("No rows yet in 'Settings'.")
-except Exception:
-    import pandas as pd
-    data = [
-        {"key": "timezone", "value": _fmt(_get("timezone", "America/Mazatlan"))},
-        {"key": "base_currency", "value": _fmt(_get("base_currency", "USD"))},
-        {"key": "report_start_date", "value": _fmt(_get("report_start_date", "2025-10-02"))},
-        {"key": "ads_enabled", "value": _fmt(_get("ads_enabled", True))},
-        {"key": "auto_snapshot_pdf", "value": _fmt(_get("auto_snapshot_pdf", True))},
-    ]
-    st.caption("Defaults loaded; connect Google Sheets or set secrets/env to override.")
-    st.dataframe(pd.DataFrame(data), use_container_width=True)
+        st.error(f"Request failed: {payload}")
 
-# ---- Developer Tools link (appended; keeps existing order) ----
+# Optional: Dev tools link if present
 try:
     with st.expander("Utilities", expanded=False):
         if os.path.exists("pages/45_Developer_Tools.py"):
