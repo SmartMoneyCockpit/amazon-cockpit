@@ -48,3 +48,10 @@ def health() -> Tuple[bool, Any]:
 
 def list_products(limit: int = 50, offset: int = 0) -> Tuple[bool, Any]:
     return api_get(f"/v1/products?limit={limit}&offset={offset}")
+
+def finance_summary():
+    return api_get("/v1/finance/summary")
+
+def finance_daily(limit: int = 60):
+    return api_get(f"/v1/finance/daily?limit={limit}")
+
