@@ -1,27 +1,28 @@
-from fastapi import FastAPI, Depends, HTTPException, Header
-from typing import Optional, List
+# api.py
+from __future__ import annotations
+
+from fastapi import FastAPI, Depends, HTTPException, Header, Query
+from typing import Optional, List, Literal
 import os
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
+
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from sqlalchemy import select, func, asc, desc, text
+from sqlalchemy.orm import Session
 
 from db import get_session
 from models import Product, FinanceDaily
 
 # ────────────────────────────────────────────────────────────────────────────────
-# Security configuration
+# Security / Config
 # ────────────────────────────────────────────────────────────────────────────────
 API_KEY = os.getenv("API_KEY")
-ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")  # set this in Render for the API service
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
 
-app = FastAPI(title="Amazon Cockpit API", version="0.3 (finance-live)")
+app = FastAPI(title="Amazon Cockpit API", version="0.4 (pagination)")
 
-# ────────────────────────────────────────────────────────────────────────────────
-# Middleware (CORS)
-# ────────────────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS or ["*"],
@@ -30,9 +31,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ────────────────────────────────────────────────────────────────────────────────
-# Auth helpers
-# ────────────────────────────────────────────────────────────────────────────────
 def require_api_key(x_api_key: Optional[str] = Header(None)) -> None:
     if API_KEY and x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -57,14 +55,43 @@ class ProductOut(BaseModel):
     title: Optional[str] = None
     price: Optional[float] = None
 
+class CountOut(BaseModel):
+    count: int
+
+_SORTABLE_PRODUCT_COLUMNS = {
+    "id": Product.id,
+    "asin": Product.asin,
+    "title": Product.title,
+    "price": Product.price,
+}
+
 @app.get("/v1/products", dependencies=[Depends(require_api_key)], response_model=List[ProductOut])
-def list_products(limit: int = 50, offset: int = 0):
+def list_products(
+    limit: int = Query(50, ge=1, le=2000),
+    offset: int = Query(0, ge=0),
+    sort_by: Literal["id", "asin", "title", "price"] = "id",
+    sort_dir: Literal["asc", "desc"] = "asc",
+):
+    sort_col = _SORTABLE_PRODUCT_COLUMNS.get(sort_by, Product.id)
+    order = asc(sort_col) if sort_dir == "asc" else desc(sort_col)
     with get_session() as sess:
-        rows = sess.execute(select(Product).offset(offset).limit(limit)).scalars().all()
+        rows = (
+            sess.execute(
+                select(Product).order_by(order).offset(offset).limit(limit)
+            )
+            .scalars()
+            .all()
+        )
     return [ProductOut(id=r.id, asin=r.asin, title=r.title, price=r.price) for r in rows]
 
+@app.get("/v1/products/count", dependencies=[Depends(require_api_key)], response_model=CountOut)
+def products_count():
+    with get_session() as sess:
+        total = sess.query(func.count(Product.id)).scalar() or 0
+    return CountOut(count=int(total))
+
 # ────────────────────────────────────────────────────────────────────────────────
-# Finance endpoints
+# Finance
 # ────────────────────────────────────────────────────────────────────────────────
 class FinanceSummaryOut(BaseModel):
     revenue: float
@@ -82,41 +109,58 @@ class FinanceDailyOut(BaseModel):
 
 @app.get("/v1/finance/summary", dependencies=[Depends(require_api_key)], response_model=FinanceSummaryOut)
 def finance_summary():
-    from sqlalchemy import func
     with get_session() as sess:
-        rev = sess.query(func.coalesce(func.sum(FinanceDaily.revenue), 0.0)).scalar() or 0.0
+        rev  = sess.query(func.coalesce(func.sum(FinanceDaily.revenue), 0.0)).scalar() or 0.0
         cogs = sess.query(func.coalesce(func.sum(FinanceDaily.cogs), 0.0)).scalar() or 0.0
         fees = sess.query(func.coalesce(func.sum(FinanceDaily.fees), 0.0)).scalar() or 0.0
         ads  = sess.query(func.coalesce(func.sum(FinanceDaily.ad_spend), 0.0)).scalar() or 0.0
-
     gross = rev - cogs - fees
     net   = gross - ads
     acos  = (ads / rev * 100.0) if rev > 1e-9 else 0.0
     return FinanceSummaryOut(revenue=rev, gross_profit=gross, net_profit=net, acos_pct=acos)
 
 @app.get("/v1/finance/daily", dependencies=[Depends(require_api_key)], response_model=List[FinanceDailyOut])
-def finance_daily(limit: int = 60, offset: int = 0, sort: str = "desc"):
-    from sqlalchemy import select, desc, asc
-    order = desc(FinanceDaily.date) if sort.lower() == "desc" else asc(FinanceDaily.date)
+def finance_daily(
+    limit: int = Query(60, ge=1, le=10000),
+    offset: int = Query(0, ge=0),
+    sort: Literal["asc", "desc"] = "desc",
+):
+    order = desc(FinanceDaily.date) if sort == "desc" else asc(FinanceDaily.date)
     with get_session() as sess:
-        rows = sess.execute(
-            select(FinanceDaily).order_by(order).offset(offset).limit(limit)
-        ).scalars().all()
-    if sort.lower() == "desc":
-        rows = list(reversed(rows))  # show oldest→newest
+        rows = (
+            sess.execute(
+                select(FinanceDaily).order_by(order).offset(offset).limit(limit)
+            )
+            .scalars()
+            .all()
+        )
+    # If user asked for DESC, return oldest→newest for charts
+    if sort == "desc":
+        rows = list(reversed(rows))
     return [
         FinanceDailyOut(
-            date=r.date, units=r.units, revenue=r.revenue,
-            cogs=r.cogs, fees=r.fees, ad_spend=r.ad_spend
-        ) for r in rows
+            date=r.date,
+            units=r.units,
+            revenue=r.revenue,
+            cogs=r.cogs,
+            fees=r.fees,
+            ad_spend=r.ad_spend,
+        )
+        for r in rows
     ]
 
+@app.get("/v1/finance/daily/count", dependencies=[Depends(require_api_key)], response_model=CountOut)
+def finance_daily_count():
+    with get_session() as sess:
+        total = sess.query(func.count(FinanceDaily.id)).scalar() or 0
+    return CountOut(count=int(total))
+
 # ────────────────────────────────────────────────────────────────────────────────
-# Demo seeding (admin protected)
+# Admin-only seed (keep in prod but behind ADMIN_TOKEN)
 # ────────────────────────────────────────────────────────────────────────────────
 @app.post(
     "/ops/seed_finance_demo",
-    dependencies=[Depends(require_api_key), Depends(require_admin)]
+    dependencies=[Depends(require_api_key), Depends(require_admin)],
 )
 def seed_finance_demo(days: int = 30):
     """Populate demo finance data (requires both API_KEY and ADMIN_TOKEN)."""
@@ -130,9 +174,15 @@ def seed_finance_demo(days: int = 30):
             fees = max(0, base * random.uniform(0.10, 0.15))
             cogs = max(0, base * random.uniform(0.35, 0.45))
             units = int(base / 25)
-            sess.add(FinanceDaily(
-                date=d, units=units, revenue=base,
-                cogs=cogs, fees=fees, ad_spend=ads
-            ))
+            sess.add(
+                FinanceDaily(
+                    date=d,
+                    units=units,
+                    revenue=base,
+                    cogs=cogs,
+                    fees=fees,
+                    ad_spend=ads,
+                )
+            )
         sess.commit()
     return {"ok": True, "seeded_days": days}
