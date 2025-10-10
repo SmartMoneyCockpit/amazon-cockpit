@@ -1,96 +1,77 @@
-
-import os
+# pages/00_Home_Global_Overview.py
+from __future__ import annotations
+import time
 import streamlit as st
 import pandas as pd
-from utils.auth import gate
-import utils.security as sec
 
-from utils.home_metrics import read_tab, derive_finance, count_severity
-from utils.freshness import read_etl_status, compute_freshness
+from utils.api_client import health, list_products
 
-st.set_page_config(page_title="Home — Global Overview", layout="wide")
-sec.enforce()
-if not gate(required_admin=False):
-    st.stop()
+st.set_page_config(
+    page_title="Vega Cockpit — Global Overview (Live)",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-st.title("🏠 Global Overview")
+st.title("🏠 Global Overview (Live)")
+st.caption("This page pulls directly from the API/DB via utils/api_client.py")
 
-# Freshness badge
-status = read_etl_status(os.getenv("ETL_STATUS_PATH"))
-label, age_hours = compute_freshness(status)
-if label == "green":
-    st.success(f"Last snapshot ran {age_hours:.1f}h ago ✅")
-elif label == "yellow":
-    st.warning(f"Last snapshot ran {age_hours:.1f}h ago ⚠️")
-elif label == "red":
-    st.error(f"Snapshot is stale ({age_hours:.1f}h). Consider refreshing. ⛔")
-else:
-    st.info("No snapshot status found. Run a refresh to populate.")
+# ────────────────────────────────────────────────────────────────────────────────
+# Health + live fetch helpers
+# ────────────────────────────────────────────────────────────────────────────────
+def fetch_products(limit: int = 100):
+    ok, data = list_products(limit=limit)
+    if not ok:
+        st.error(f"API error: {data}")
+        return pd.DataFrame()
+    if isinstance(data, list) and data:
+        # normalize into a frame
+        df = pd.DataFrame(data)
+        # keep a stable column order if present
+        cols = [c for c in ["id", "asin", "title", "price"] if c in df.columns]
+        return df[cols] if cols else df
+    return pd.DataFrame(columns=["id", "asin", "title", "price"])
 
-# Manual refresh
-colA, colB = st.columns([1,4])
-if colA.button("🔄 Refresh Now (run snapshots)"):
-    try:
-        from scripts import snapshots
-        snapshots.run_all()
-        st.success("Snapshots completed. Data should now be fresh.")
-        st.rerun()
-    except Exception as e:
-        st.error(f"Refresh failed: {e}")
-
-st.caption("This page shows finance health, actions, inventory risk, and compliance at a glance.")
-
-# Data
-fin = derive_finance(read_tab("profitability_monthly"))
-actions = read_tab("actions_out")
-lowdoc = read_tab("alerts_out_low_doc")
-compliance = read_tab("alerts_out_compliance")
-
-for df in [actions, lowdoc, compliance]:
-    try: df.columns = [c.strip().lower() for c in df.columns]
-    except Exception: pass
-
-# Safe timezone handling
-today = pd.Timestamp.now(tz="UTC").tz_convert("America/Mazatlan")
-this_month = today.strftime("%Y-%m")
-this_year = today.year
-
-# Finance KPIs
-rev_mtd = net_mtd = rev_ytd = net_ytd = 0.0
-if not fin.empty:
-    mtd = fin[fin["month"] == this_month]
-    ytd = fin[pd.to_datetime(fin["month"], errors="coerce").dt.year == this_year]
-    rev_mtd = float(mtd["revenue"].sum())
-    net_mtd = float(mtd["net"].sum())
-    rev_ytd = float(ytd["revenue"].sum())
-    net_ytd = float(ytd["net"].sum())
-
-# Action counts
-crit, attn, green = count_severity(actions)
-doc_at_risk = len(lowdoc) if isinstance(lowdoc, pd.DataFrame) and not lowdoc.empty else 0
-comp_due = len(compliance) if isinstance(compliance, pd.DataFrame) and not compliance.empty else 0
-
-# KPI tiles
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Revenue (MTD)", f"${rev_mtd:,.2f}")
-c2.metric("Net (MTD)", f"${net_mtd:,.2f}")
-c3.metric("Critical Actions", f"{crit}")
-c4.metric("Low DoC SKUs", f"{doc_at_risk}")
-
-c5, c6, c7, c8 = st.columns(4)
-c5.metric("Revenue (YTD)", f"${rev_ytd:,.2f}")
-c6.metric("Net (YTD)", f"${net_ytd:,.2f}")
-c7.metric("Attention Items", f"{attn}")
-c8.metric("Compliance Due", f"{comp_due}")
+# ────────────────────────────────────────────────────────────────────────────────
+# Health section
+# ────────────────────────────────────────────────────────────────────────────────
+hcol1, hcol2 = st.columns([1,3])
+with hcol1:
+    ok_health, payload_health = health()
+    st.metric("API Health", "OK" if ok_health else "ERROR")
+with hcol2:
+    with st.expander("Health detail", expanded=not ok_health):
+        st.write(payload_health)
 
 st.divider()
 
-# Quick Links (clean)
-st.subheader("Quick Links")
-st.markdown("""
-- **📊 Finance Dashboard v2**  
-- **📊 Finance Heatmap**  
-- **🧭 Trade / Action Hub**  
-- **🚨 Alerts Center**  
-- **🔄 Data Sync**
-""")
+# ────────────────────────────────────────────────────────────────────────────────
+# Live KPIs (based on current products table — adjust as you add more data)
+# ────────────────────────────────────────────────────────────────────────────────
+c1, c2, c3, c4 = st.columns(4)
+limit = st.number_input("Max rows to pull", 10, 2000, 200, step=10)
+
+if st.button("🔄 Refresh (live)"):
+    st.session_state["_global_products_df"] = fetch_products(limit=limit)
+    time.sleep(0.05)
+
+df = st.session_state.get("_global_products_df", fetch_products(limit=limit))
+
+with c1:
+    st.metric("Products", int(df.shape[0]))
+with c2:
+    avg_price = float(df["price"].dropna().mean()) if "price" in df.columns else 0.0
+    st.metric("Avg Price", f"${avg_price:,.2f}")
+with c3:
+    priced = int(df["price"].notna().sum()) if "price" in df.columns else 0
+    st.metric("With Price", priced)
+with c4:
+    missing_price = int(df.shape[0] - priced)
+    st.metric("Missing Price", missing_price)
+
+st.subheader("Inventory Snapshot (from DB)")
+st.dataframe(df, use_container_width=True, height=420)
+
+st.caption(
+    "Tip: As you ingest more data (orders, finance, ads), we’ll extend this page’s KPIs "
+    "to include revenue/COGS/fees and add charts fed by new API endpoints."
+)
