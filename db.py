@@ -1,6 +1,7 @@
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from contextlib import contextmanager
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 
@@ -15,3 +16,19 @@ engine = create_engine(
 )
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+
+# Create tables on import if not present (simple bootstrap; for production use migrations)
+try:
+    from models import Base
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    # Avoid hard crash on circular import during tooling
+    pass
+
+@contextmanager
+def get_session():
+    sess = SessionLocal()
+    try:
+        yield sess
+    finally:
+        sess.close()
