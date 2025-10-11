@@ -1,5 +1,11 @@
 import os, time, json, gzip, io, sqlite3, requests, pathlib
 
+# Debug toggle
+DEBUG = os.getenv("AMZ_ADS_DEBUG", "0").lower() in ("1", "true", "yes", "on")
+def _dbg(*a):
+    if DEBUG:
+        print("[ads]", *a)
+
 # Helper: allow AMZ_* canonical envs, with SPAPI_* fallbacks if present
 def _env(name, fallback=None):
     return os.getenv(name, os.getenv(name.replace('SPAPI_', 'AMZ_'), fallback))
@@ -9,7 +15,7 @@ ADS_BASE   = os.getenv('AMZ_ADS_API_BASE', 'https://advertising-api.amazon.com')
 CLIENT_ID  = os.getenv('AMZ_ADS_CLIENT_ID')
 CLIENT_SEC = os.getenv('AMZ_ADS_CLIENT_SECRET')
 REFRESH    = os.getenv('AMZ_ADS_REFRESH_TOKEN')
-PROFILE_ID = os.getenv('AMZ_ADS_PROFILE_ID')
+PROFILE_ID = os.getenv('AMZ_ADS_PROFILE_ID')  # may be blank → we won’t send scope header
 
 # Seller Central SP-API (reserved for future total revenue wiring)
 SPAPI_APP_CLIENT_ID     = _env('SPAPI_APP_CLIENT_ID')
@@ -26,7 +32,7 @@ SPAPI_ENDPOINT          = _env('SPAPI_ENDPOINT', os.getenv('AMZ_ENDPOINT', 'http
 INCLUDE_ARCHIVED = os.getenv('VEGA_ADS_INCLUDE_ARCHIVED', 'false').lower() == 'true'
 CACHE_DAYS = int(os.getenv('VEGA_ADS_CACHE_DAYS', '35'))
 
-# ---- NEW: safe writable DATA_DIR ----
+# ---- Safe writable DATA_DIR ----
 from services.amazon_ads_service_patch_dbdir import ensure_writable_dir
 DATA_DIR, _VEGA_DIR_WARN = ensure_writable_dir()
 if _VEGA_DIR_WARN:
@@ -34,7 +40,6 @@ if _VEGA_DIR_WARN:
 DB_PATH = os.path.join(DATA_DIR, 'vega_ads.db')
 
 _token = {'val': None, 'exp': 0}
-
 def _now(): return int(time.time())
 
 def _access_token():
@@ -53,12 +58,15 @@ def _access_token():
     return _token['val']
 
 def _base_headers():
-    return {
+    """Only send Scope header if PROFILE_ID is truthy."""
+    h = {
         'Authorization': f'Bearer {_access_token()}',
         'Amazon-Advertising-API-ClientId': CLIENT_ID,
-        'Amazon-Advertising-API-Scope': str(PROFILE_ID),
         'Accept': 'application/json',
     }
+    if PROFILE_ID:
+        h['Amazon-Advertising-API-Scope'] = str(PROFILE_ID)
+    return h
 
 # ---------------- DB helpers ----------------
 def _db():
@@ -92,14 +100,42 @@ def _init_db():
 
 _init_db()
 
-# -------- Profiles --------
-def get_profiles():
-    r = requests.get(f'{ADS_BASE}/v2/profiles', headers=_base_headers(), timeout=60)
+# -------- Utilities / diagnostics --------
+def _get_json(path, params=None):
+    url = f"{ADS_BASE}{path}"
+    h = _base_headers()
+    r = requests.get(url, headers=h, params=params, timeout=60)
     if r.status_code == 401:
         _token['val'] = None
-        r = requests.get(f'{ADS_BASE}/v2/profiles', headers=_base_headers(), timeout=60)
+        h = _base_headers()
+        r = requests.get(url, headers=h, params=params, timeout=60)
     r.raise_for_status()
-    return r.json()
+    try:
+        return r.json()
+    except Exception:
+        return []
+
+def quick_diag():
+    """Print profiles and basic campaign counts for SP/SB/SD."""
+    try:
+        profs = _get_json("/v2/profiles")
+        _dbg("profiles:", len(profs))
+        if profs:
+            _dbg("profileIds:", [p.get("profileId") for p in profs][:8])
+            _dbg("countries:", [p.get("countryCode") for p in profs][:8])
+    except Exception as e:
+        print("[ads][diag] profiles error:", e)
+        return
+    for t in ["sp", "sb", "sd"]:
+        try:
+            rows = _get_json(f"/{t}/v2/campaigns", params={"stateFilter": "enabled,paused"})
+            _dbg(f"{t} campaigns:", len(rows))
+        except Exception as e:
+            print(f"[ads][diag] {t} campaigns error:", e)
+
+# -------- Profiles --------
+def get_profiles():
+    return _get_json('/v2/profiles')
 
 # -------- Campaign lists --------
 def _filter_archived(rows):
@@ -142,22 +178,22 @@ def list_all_campaigns():
     rows = []
     try:
         for c in list_sp_campaigns():
-            rows.append({'type':'SP','campaignId':c.get('campaignId'),'name':c.get('name'),
-                         'state':c.get('state'),'budget':c.get('budget'),'startDate':c.get('startDate')})
+            rows.append({'type': 'SP', 'campaignId': c.get('campaignId'), 'name': c.get('name'),
+                         'state': c.get('state'), 'budget': c.get('budget'), 'startDate': c.get('startDate')})
     except Exception as e:
-        rows.append({'type':'SP','error':str(e)})
+        rows.append({'type': 'SP', 'error': str(e)})
     try:
         for c in list_sb_campaigns():
-            rows.append({'type':'SB','campaignId':c.get('campaignId'),'name':c.get('name'),
-                         'state':c.get('state'),'budget':c.get('budget', None),'startDate':c.get('startDate')})
+            rows.append({'type': 'SB', 'campaignId': c.get('campaignId'), 'name': c.get('name'),
+                         'state': c.get('state'), 'budget': c.get('budget', None), 'startDate': c.get('startDate')})
     except Exception as e:
-        rows.append({'type':'SB','error':str(e)})
+        rows.append({'type': 'SB', 'error': str(e)})
     try:
         for c in list_sd_campaigns():
-            rows.append({'type':'SD','campaignId':c.get('campaignId'),'name':c.get('name'),
-                         'state':c.get('state'),'budget':c.get('budget'),'startDate':c.get('startDate')})
+            rows.append({'type': 'SD', 'campaignId': c.get('campaignId'), 'name': c.get('name'),
+                         'state': c.get('state'), 'budget': c.get('budget'), 'startDate': c.get('startDate')})
     except Exception as e:
-        rows.append({'type':'SD','error':str(e)})
+        rows.append({'type': 'SD', 'error': str(e)})
     return rows
 
 # ---------- Reporting API shared ----------
@@ -191,8 +227,8 @@ def _poll_report(ad_type, report_id, timeout_sec=240, interval=3):
             r.raise_for_status()
             j = r.json()
             status = (j.get('status') or j.get('processingStatus') or '').upper()
-            if status in ('SUCCESS','COMPLETED'): return j
-            if status in ('FAILURE','FAILED'): raise RuntimeError(f'Report failed: {j}')
+            if status in ('SUCCESS', 'COMPLETED'): return j
+            if status in ('FAILURE', 'FAILED'): raise RuntimeError(f'Report failed: {j}')
         time.sleep(interval)
     raise TimeoutError(f'{ad_type} report not ready after {timeout_sec}s')
 
@@ -218,11 +254,11 @@ def upsert_metrics(rows):
             VALUES (?,?,?,?,?,?,?,?,?,?)""", (
                 r.get('adType'), str(r.get('date')), str(r.get('campaignId')), r.get('campaignName'),
                 r.get('impressions',0), r.get('clicks',0), r.get('cost',0),
-                r.get('purchases14d',0), r.get('sales14d',0), str(PROFILE_ID)
+                r.get('purchases14d',0), r.get('sales14d',0), str(PROFILE_ID or "")
             ))
     con.commit(); con.close()
 
-# ---------- Metrics (campaign-level) ----------
+# ---------- Metrics ----------
 def create_sp_report(start_date, end_date, time_unit='DAILY'):
     body = {
         'name': 'vega-sp-campaigns',
@@ -322,7 +358,7 @@ def upsert_search_terms(rows):
                 r.get('adType'), str(r.get('date')), str(r.get('campaignId')),
                 r.get('keywordText') or r.get('keyword') or '', r.get('searchTerm'),
                 r.get('impressions',0), r.get('clicks',0), r.get('cost',0),
-                r.get('sales14d',0), str(PROFILE_ID)
+                r.get('sales14d',0), str(PROFILE_ID or "")
             ))
     con.commit(); con.close()
 
@@ -332,7 +368,8 @@ def fetch_search_terms(start_date, end_date, which=('SP','SB','SD')):
         try:
             rid = create_search_terms_report(t, start_date, end_date)
             jobs.append((t.lower(), rid))
-        except Exception:
+        except Exception as e:
+            _dbg("search-terms rid error", t, e)
             continue
     out = []
     for ad_type, rid in jobs:
@@ -379,7 +416,7 @@ def upsert_placements(rows):
             VALUES (?,?,?,?,?,?,?,?,?)""", (
                 r.get('adType'), str(r.get('date')), str(r.get('campaignId')),
                 r.get('placement',''), r.get('impressions',0), r.get('clicks',0),
-                r.get('cost',0), r.get('sales14d',0), str(PROFILE_ID)
+                r.get('cost',0), r.get('sales14d',0), str(PROFILE_ID or "")
             ))
     con.commit(); con.close()
 
@@ -389,7 +426,8 @@ def fetch_placements(start_date, end_date, which=('SP','SB','SD')):
         try:
             rid = create_placements_report(t, start_date, end_date)
             jobs.append((t.lower(), rid))
-        except Exception:
+        except Exception as e:
+            _dbg("placements rid error", t, e)
             continue
     out = []
     for ad_type, rid in jobs:
