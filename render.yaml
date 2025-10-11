@@ -1,2 +1,11 @@
 services:
   - type: web
+    name: amazon-cockpit-2
+    env: python
+    plan: starter
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: ./start.sh
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
