@@ -1,0 +1,6 @@
+# In app.py (after imports or after st.set_page_config(...)) add:
+try:
+    from services.ads_scheduler import start_scheduler
+    start_scheduler()
+except Exception as _e:
+    print("[scheduler] not started:", _e)
