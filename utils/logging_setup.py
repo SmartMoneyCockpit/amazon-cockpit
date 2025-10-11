@@ -1,20 +1,27 @@
-"""
-Lightweight logging setup to file logs/app.log (rotates on deploy).
-"""
-import os, logging
-from logging.handlers import RotatingFileHandler
+import logging, os, json, sys, time, uuid
 
-def init_logging():
-    try:
-        os.makedirs("logs", exist_ok=True)
-        handler = RotatingFileHandler("logs/app.log", maxBytes=2_000_000, backupCount=2, encoding="utf-8")
-        fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
-        handler.setFormatter(fmt)
-        root = logging.getLogger()
-        root.setLevel(logging.INFO)
-        if not any(isinstance(h, RotatingFileHandler) for h in root.handlers):
-            root.addHandler(handler)
-        logging.getLogger(__name__).info("Logging initialized")
-    except Exception as e:
-        # Fail-soft; never break the app
-        print(f"[logging_setup] init failed: {e}")
+class JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        base = {
+            "ts": int(time.time()*1000),
+            "lvl": record.levelname,
+            "msg": record.getMessage(),
+            "logger": record.name,
+            "module": record.module,
+        }
+        if record.exc_info:
+            base["exc_info"] = self.formatException(record.exc_info)
+        return json.dumps(base, ensure_ascii=False)
+
+def setup(level: str | int = None):
+    lvl = level or os.getenv("LOG_LEVEL", "INFO").upper()
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(JsonFormatter())
+    root = logging.getLogger()
+    root.setLevel(lvl)
+    for h in list(root.handlers):
+        root.removeHandler(h)
+    root.addHandler(handler)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("asyncio").setLevel(logging.WARNING)
+    logging.info("logging_configured", extra={})
