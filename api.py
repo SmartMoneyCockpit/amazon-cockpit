@@ -186,3 +186,71 @@ def seed_finance_demo(days: int = 30):
             )
         sess.commit()
     return {"ok": True, "seeded_days": days}
+
+# ────────────────────────────────────────────────────────────────────────────────
+# Amazon Ads live refresh + counts
+# ────────────────────────────────────────────────────────────────────────────────
+from services.amazon_ads_service import _db, _init_db, fetch_metrics, fetch_search_terms, fetch_placements
+
+class AdsRefreshOut(BaseModel):
+    ok: bool
+    inserted_metrics: int
+    inserted_search_terms: int
+    inserted_placements: int
+    window_start: str
+    window_end: str
+
+@app.post("/v1/ads/refresh", dependencies=[Depends(require_api_key)], response_model=AdsRefreshOut)
+def ads_refresh(days: int = 30, types: Optional[str] = "SP,SB"):
+    _init_db()
+    from datetime import datetime, timedelta
+    end = datetime.utcnow().date()
+    start = end - timedelta(days=days)
+    start_s, end_s = start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")
+    inserted = {"metrics": 0, "search_terms": 0, "placements": 0}
+    ad_types = [t.strip().upper() for t in (types or "SP,SB").split(",") if t.strip()]
+    for t in ad_types:
+        try:
+            m = fetch_metrics(t, start_s, end_s) or []
+            inserted["metrics"] += len(m)
+        except Exception as e:
+            print(f"[WARN] fetch_metrics {t}: {e}")
+        try:
+            s = fetch_search_terms(t, start_s, end_s) or []
+            inserted["search_terms"] += len(s)
+        except Exception as e:
+            print(f"[WARN] fetch_search_terms {t}: {e}")
+        try:
+            p = fetch_placements(t, start_s, end_s) or []
+            inserted["placements"] += len(p)
+        except Exception as e:
+            print(f"[WARN] fetch_placements {t}: {e}")
+    return AdsRefreshOut(
+        ok=True,
+        inserted_metrics=inserted["metrics"],
+        inserted_search_terms=inserted["search_terms"],
+        inserted_placements=inserted["placements"],
+        window_start=start_s,
+        window_end=end_s,
+    )
+
+class AdsCountOut(BaseModel):
+    metrics: int
+    search_terms: int
+    placements: int
+
+@app.get("/v1/ads/metrics/count", dependencies=[Depends(require_api_key)], response_model=AdsCountOut)
+def ads_metrics_count():
+    _init_db()
+    con = _db()
+    cur = con.cursor()
+    def _count(table):
+        try:
+            return cur.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] or 0
+        except Exception:
+            return 0
+    return AdsCountOut(
+        metrics=_count("metrics"),
+        search_terms=_count("search_terms"),
+        placements=_count("placements"),
+    )
