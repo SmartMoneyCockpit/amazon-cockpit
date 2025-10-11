@@ -42,17 +42,22 @@ def _loop():
     try:
         _run_once()
     except Exception:
-        print("[scheduler] initial run failed:"); traceback.print_exc()
+        print("[scheduler] initial run failed:")
+        traceback.print_exc()
     while True:
         try:
+            print(f"[scheduler] heartbeat — next run in {FREQ_MIN} min")
             time.sleep(max(1, 60 * FREQ_MIN))
             _run_once()
         except Exception:
-            print("[scheduler] loop error:"); traceback.print_exc()
+            print("[scheduler] loop error:")
+            traceback.print_exc()
 
 def start_scheduler():
     if os.getenv("ENABLE_SCHEDULER", "1").lower() in ("1","true","yes","on"):
+        print("[scheduler] start_scheduler() called — launching thread")
         th = threading.Thread(target=_loop, name="ads_scheduler", daemon=True)
         th.start()
         return True
+    print("[scheduler] disabled via ENABLE_SCHEDULER")
     return False
