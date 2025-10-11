@@ -1,5 +1,9 @@
 [server]
 headless = true
+address = "0.0.0.0"
+enableCORS = true
+enableXsrfProtection = false
+maxMessageSize = 200
 
-[client]
-showErrorDetails = true
+[browser]
+gatherUsageStats = false
