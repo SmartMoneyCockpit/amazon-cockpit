@@ -5,6 +5,18 @@ import requests
 import streamlit as st
 
 # ────────────────────────────────────────────────────────────────────────────────
+# Start the background scheduler (with debug)
+# ────────────────────────────────────────────────────────────────────────────────
+print("[boot] app.py loading…")
+try:
+    from services.ads_scheduler import start_scheduler
+    ok = start_scheduler()
+    print(f"[scheduler] launch attempted ok={ok} ENABLE_SCHEDULER={os.getenv('ENABLE_SCHEDULER')}")
+except Exception as e:
+    print("[scheduler] failed:", e)
+    import traceback; traceback.print_exc()
+
+# ────────────────────────────────────────────────────────────────────────────────
 # Page config
 # ────────────────────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -161,7 +173,7 @@ settings_rows = [
     {"key": "auto_snapshot_pdf", "value": _fmt(_get_secret_like("auto_snapshot_pdf", True))},
     {"key": "DATABASE_URL set?", "value": "Yes" if bool(_get_secret_like("DATABASE_URL", "")) else "No"},
 ]
-st.dataframe(settings_rows, use_container_width=True)
+st.dataframe(settings_rows, width="stretch")
 
 st.divider()
 st.subheader("Live sample (products)")
@@ -183,7 +195,7 @@ with right:
         try:
             import pandas as pd
             if isinstance(payload, list):
-                st.dataframe(pd.DataFrame(payload), use_container_width=True)
+                st.dataframe(pd.DataFrame(payload), width="stretch")
             else:
                 st.code(_fmt(payload), language="json")
         except Exception:
