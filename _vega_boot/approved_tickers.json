@@ -1,0 +1,26 @@
+{
+  "north_america": [
+    "SPY",
+    "QQQ",
+    "IWM",
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "AMZN",
+    "TSLA",
+    "META",
+    "GOOGL"
+  ],
+  "apac": [
+    "EWJ",
+    "EWA",
+    "EWH",
+    "AS51.AX"
+  ],
+  "europe": [
+    "EZU",
+    "VGK",
+    "DAX",
+    "UKX"
+  ]
+}
