@@ -173,7 +173,7 @@ settings_rows = [
     {"key": "auto_snapshot_pdf", "value": _fmt(_get_secret_like("auto_snapshot_pdf", True))},
     {"key": "DATABASE_URL set?", "value": "Yes" if bool(_get_secret_like("DATABASE_URL", "")) else "No"},
 ]
-st.dataframe(settings_rows, width="stretch")
+st.dataframe(settings_rows, use_container_width=True)   # ✅ fixed
 
 st.divider()
 st.subheader("Live sample (products)")
@@ -195,7 +195,7 @@ with right:
         try:
             import pandas as pd
             if isinstance(payload, list):
-                st.dataframe(pd.DataFrame(payload), width="stretch")
+                st.dataframe(pd.DataFrame(payload), use_container_width=True)   # ✅ fixed
             else:
                 st.code(_fmt(payload), language="json")
         except Exception:
