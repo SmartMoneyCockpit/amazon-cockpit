@@ -1,9 +1,9 @@
 import os
 from typing import List, Optional
-from fastapi import FastAPI, Depends, HTTPException, Header, Query
+from fastapi import FastAPI, Depends, HTTPException, Header, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text  # ✅ added import
+from sqlalchemy import text
 from backend.db import engine, Base, SessionLocal
 from backend.schemas import ProductOut, ProductIn
 from backend.crud import list_products, create_product, list_compliance, list_research
@@ -34,7 +34,6 @@ async def on_startup():
 @app.get("/health")
 async def health(db: AsyncSession = Depends(get_db)):
     try:
-        # ✅ fixed query using text() for SQLAlchemy 2.x
         await db.execute(text("SELECT 1"))
         return {"ok": True, "env": APP_ENV, "db_ok": True}
     except Exception as e:
@@ -95,3 +94,40 @@ async def debug_ads():
         "status": status_camps,
         "body": body_camps,
     }
+
+# --- one-time seed endpoint (safe to leave; no-op after first run) ---
+@app.get("/seed")
+async def seed(db: AsyncSession = Depends(get_db), x_api_key: str | None = Header(default=None)):
+    if API_KEY and x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    await db.execute(text("""
+    CREATE TABLE IF NOT EXISTS products (
+      id SERIAL PRIMARY KEY,
+      asin TEXT UNIQUE,
+      sku TEXT,
+      title TEXT,
+      brand TEXT,
+      category TEXT,
+      price NUMERIC,
+      cost NUMERIC,
+      inventory INT,
+      reviews INT,
+      stars NUMERIC,
+      weight_kg NUMERIC,
+      size TEXT,
+      restricted_notes TEXT,
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+    """))
+
+    await db.execute(text("""
+    INSERT INTO products (asin, sku, title, brand, price, cost, inventory, reviews, stars)
+    VALUES
+      ('TEST123','SKU-001','Sample Product A','Vega',19.99,7.50,25,120,4.3),
+      ('TEST456','SKU-002','Sample Product B','Vega',12.49,5.10,60,45,4.0)
+    ON CONFLICT (asin) DO NOTHING;
+    """))
+
+    await db.commit()
+    return {"ok": True, "seeded": ["TEST123", "TEST456"]}
