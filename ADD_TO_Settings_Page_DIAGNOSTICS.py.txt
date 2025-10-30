@@ -1,0 +1,17 @@
+# Paste into your Streamlit Settings page
+import json as _json
+with st.expander("Amazon Ads • Diagnostics", expanded=False):
+    ok_env, env_payload = api_get("/debug/env")
+    if ok_env:
+        miss = env_payload.get("missing_keys", [])
+        st.write("Env present:", env_payload.get("env_present"))
+        if miss: st.error("Missing keys: " + ", ".join(miss))
+        else: st.success("All required env keys present")
+    else: st.error(f"/debug/env failed: {env_payload}")
+    if st.button("Run Ads connectivity test"):
+        ok_ads, ads_payload = api_get("/debug/ads")
+        st.code(_json.dumps(ads_payload, indent=2))
+        if ok_ads and isinstance(ads_payload, dict) and ads_payload.get("ok"):
+            st.success("Ads connectivity: OK (token + profiles + campaigns)")
+        else:
+            st.error("Stage failed: " + (ads_payload.get("stage") if isinstance(ads_payload, dict) else "unknown"))
