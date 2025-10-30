@@ -1,34 +1,24 @@
+# db.py
 import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from contextlib import contextmanager
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.orm import DeclarativeBase
 
-DATABASE_URL = os.environ["DATABASE_URL"]
+DATABASE_URL = os.getenv("DATABASE_URL")
+# Accept both async & sync URLs; if sync, translate psycopg → asyncpg
+if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-# Normalize postgres:// to postgresql+psycopg2://
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg2://", 1)
-
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,
-    future=True,
-)
-
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
-
-# Create tables on import if not present (simple bootstrap; for production use migrations)
-try:
-    from models import Base
-    Base.metadata.create_all(bind=engine)
-except Exception as e:
-    # Avoid hard crash on circular import during tooling
+class Base(DeclarativeBase):
     pass
 
-@contextmanager
-def get_session():
-    sess = SessionLocal()
-    try:
-        yield sess
-    finally:
-        sess.close()
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+)
+
+SessionLocal = async_sessionmaker(
+    bind=engine,
+    autoflush=False,
+    expire_on_commit=False,
+    class_=AsyncSession,
+)
