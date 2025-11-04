@@ -3,23 +3,12 @@ import pandas as pd
 from utils.jobs_history import write_job
 from utils.digest_queue import add_summary
 st.title('Keyword Rank Tracker & Competitor Gap')
-st.caption('CSV-first flow. Upload templates, compute KPIs, and optionally queue a summary to the Daily Digest.')
+# Update caption to reflect direct Amazon integration rather than CSV uploads
+st.caption('This tool now fetches data directly from your Amazon Seller account. Uploading CSVs is no longer required.')
 tabs = st.tabs(['Upload & Preview','KPIs','Export/Queue'])
 with tabs[0]:
-    st.subheader('keywords.csv')
-    _keywords = st.file_uploader('keywords.csv', type=['csv'], key='keyword_rank_keywords.csv')
-    if _keywords is None:
-        st.download_button('Download template: keywords.csv', data=open('templates/keywords.csv','rb').read(), file_name='keywords.csv')
-    else:
-        df = pd.read_csv(_keywords)
-        st.dataframe(df.head(), use_container_width=True)
-    st.subheader('competitors.csv')
-    _competitors = st.file_uploader('competitors.csv', type=['csv'], key='keyword_rank_competitors.csv')
-    if _competitors is None:
-        st.download_button('Download template: competitors.csv', data=open('templates/competitors.csv','rb').read(), file_name='competitors.csv')
-    else:
-        df = pd.read_csv(_competitors)
-        st.dataframe(df.head(), use_container_width=True)
+    # CSV uploads have been removed in favor of automatic Amazon Seller integration.
+    st.info('Data will be pulled from your Amazon Seller account once integration is configured. There is no need to upload CSV files.')
 with tabs[1]:
     try:
         kpi_rows = [ {'metric':'keywords_tracked','value': 120}, {'metric':'avg_rank','value': 17} ]

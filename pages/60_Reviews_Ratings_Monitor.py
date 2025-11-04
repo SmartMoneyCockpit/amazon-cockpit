@@ -3,23 +3,12 @@ import pandas as pd
 from utils.jobs_history import write_job
 from utils.digest_queue import add_summary
 st.title('Reviews & Ratings Monitor')
-st.caption('CSV-first flow. Upload templates, compute KPIs, and optionally queue a summary to the Daily Digest.')
+# Update caption to reflect direct Amazon integration rather than CSV uploads
+st.caption('This tool now fetches data directly from your Amazon Seller account. Uploading CSVs is no longer required.')
 tabs = st.tabs(['Upload & Preview','KPIs','Export/Queue'])
 with tabs[0]:
-    st.subheader('reviews.csv')
-    _reviews = st.file_uploader('reviews.csv', type=['csv'], key='reviews_monitor_reviews.csv')
-    if _reviews is None:
-        st.download_button('Download template: reviews.csv', data=open('templates/reviews.csv','rb').read(), file_name='reviews.csv')
-    else:
-        df = pd.read_csv(_reviews)
-        st.dataframe(df.head(), use_container_width=True)
-    st.subheader('ratings.csv')
-    _ratings = st.file_uploader('ratings.csv', type=['csv'], key='reviews_monitor_ratings.csv')
-    if _ratings is None:
-        st.download_button('Download template: ratings.csv', data=open('templates/ratings.csv','rb').read(), file_name='ratings.csv')
-    else:
-        df = pd.read_csv(_ratings)
-        st.dataframe(df.head(), use_container_width=True)
+    # CSV uploads have been removed in favor of automatic Amazon Seller integration.
+    st.info('Data will be pulled from your Amazon Seller account once integration is configured. There is no need to upload CSV files.')
 with tabs[1]:
     try:
         # Example KPI: count 1-2 star reviews in last 24h

@@ -3,23 +3,12 @@ import pandas as pd
 from utils.jobs_history import write_job
 from utils.digest_queue import add_summary
 st.title('Buy Box & Price Intelligence')
-st.caption('CSV-first flow. Upload templates, compute KPIs, and optionally queue a summary to the Daily Digest.')
+# Update caption to reflect direct Amazon integration rather than CSV uploads
+st.caption('This tool now fetches data directly from your Amazon Seller account. Uploading CSVs is no longer required.')
 tabs = st.tabs(['Upload & Preview','KPIs','Export/Queue'])
 with tabs[0]:
-    st.subheader('pricing.csv')
-    _pricing = st.file_uploader('pricing.csv', type=['csv'], key='buybox_intel_pricing.csv')
-    if _pricing is None:
-        st.download_button('Download template: pricing.csv', data=open('templates/pricing.csv','rb').read(), file_name='pricing.csv')
-    else:
-        df = pd.read_csv(_pricing)
-        st.dataframe(df.head(), use_container_width=True)
-    st.subheader('competitors.csv')
-    _competitors = st.file_uploader('competitors.csv', type=['csv'], key='buybox_intel_competitors.csv')
-    if _competitors is None:
-        st.download_button('Download template: competitors.csv', data=open('templates/competitors.csv','rb').read(), file_name='competitors.csv')
-    else:
-        df = pd.read_csv(_competitors)
-        st.dataframe(df.head(), use_container_width=True)
+    # CSV uploads have been removed in favor of automatic Amazon Seller integration.
+    st.info('Data will be pulled from your Amazon Seller account once integration is configured. There is no need to upload CSV files.')
 with tabs[1]:
     try:
         kpi_rows = [ {'metric':'lost_buybox_hours','value': 7}, {'metric':'min_margin','value': 0.22} ]

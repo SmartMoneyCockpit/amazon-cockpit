@@ -3,16 +3,12 @@ import pandas as pd
 from utils.jobs_history import write_job
 from utils.digest_queue import add_summary
 st.title('FBA Inventory & Restock Planner')
-st.caption('CSV-first flow. Upload templates, compute KPIs, and optionally queue a summary to the Daily Digest.')
+# Update caption to reflect direct Amazon integration rather than CSV uploads
+st.caption('This tool now fetches data directly from your Amazon Seller account. Uploading CSVs is no longer required.')
 tabs = st.tabs(['Upload & Preview','KPIs','Export/Queue'])
 with tabs[0]:
-    st.subheader('inventory.csv')
-    _inventory = st.file_uploader('inventory.csv', type=['csv'], key='fba_restock_inventory.csv')
-    if _inventory is None:
-        st.download_button('Download template: inventory.csv', data=open('templates/inventory.csv','rb').read(), file_name='inventory.csv')
-    else:
-        df = pd.read_csv(_inventory)
-        st.dataframe(df.head(), use_container_width=True)
+    # CSV uploads have been removed in favor of automatic Amazon Seller integration.
+    st.info('Data will be pulled from your Amazon Seller account once integration is configured. There is no need to upload CSV files.')
 with tabs[1]:
     try:
         kpi_rows = [ {'metric':'days_of_cover','value': 28}, {'metric':'restock_qty','value': 150} ]

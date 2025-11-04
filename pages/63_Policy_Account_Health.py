@@ -3,16 +3,12 @@ import pandas as pd
 from utils.jobs_history import write_job
 from utils.digest_queue import add_summary
 st.title('Policy & Account Health Watch')
-st.caption('CSV-first flow. Upload templates, compute KPIs, and optionally queue a summary to the Daily Digest.')
+# Update caption to reflect direct Amazon integration rather than CSV uploads
+st.caption('This tool now fetches data directly from your Amazon Seller account. Uploading CSVs is no longer required.')
 tabs = st.tabs(['Upload & Preview','KPIs','Export/Queue'])
 with tabs[0]:
-    st.subheader('account_health.csv')
-    _account_health = st.file_uploader('account_health.csv', type=['csv'], key='account_health_account_health.csv')
-    if _account_health is None:
-        st.download_button('Download template: account_health.csv', data=open('templates/account_health.csv','rb').read(), file_name='account_health.csv')
-    else:
-        df = pd.read_csv(_account_health)
-        st.dataframe(df.head(), use_container_width=True)
+    # CSV uploads have been removed in favor of automatic Amazon Seller integration.
+    st.info('Data will be pulled from your Amazon Seller account once integration is configured. There is no need to upload CSV files.')
 with tabs[1]:
     try:
         kpi_rows = [ {'metric':'critical_open','value': 1}, {'metric':'high_open','value': 2} ]
