@@ -134,8 +134,12 @@ with st.sidebar:
         st.page_link("pages/40_Compliance_Vault.py", label="Compliance Vault")
 
     with st.expander("Utilities", expanded=False):
+        # Consolidate miscellaneous tools into a single Admin Console entry.
+        # The Admin Console (pages/45_Settings.py) now handles settings, backup, file inventory and jobs history.
+        st.page_link("pages/45_Settings.py", label="Admin Console")
+
+        # Retain other utility pages that provide unique functionality
         st.page_link("pages/35_Drive_Upload_Test.py", label="Drive Upload Test")
-        st.page_link("pages/44_Settings_Controls.py", label="Settings Controls")
         st.page_link("pages/42_PPC_Live.py", label="PPC Live")
 
     st.header("Utilities")
@@ -203,10 +207,5 @@ with right:
     else:
         st.error(f"Request failed: {payload}")
 
-# Optional: Dev tools link if present
-try:
-    with st.expander("Utilities", expanded=False):
-        if os.path.exists("pages/45_Developer_Tools.py"):
-            st.page_link("pages/45_Developer_Tools.py", label="Developer Tools")
-except Exception:
-    pass
+# Remove the standalone Developer Tools entry from the sidebar.
+# Developer tooling is now consolidated into the Admin Console page.
